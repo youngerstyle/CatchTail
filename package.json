@@ -1,0 +1,16 @@
+{
+  "name": "catchtail",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "catchtail": "./bin/catchtail.js"
+  },
+  "scripts": {
+    "test": "node --test",
+    "start": "node ./bin/catchtail.js serve"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

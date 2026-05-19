@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"./plugins/catchtail/hooks/catchtail-hook.js\"",
+            "timeout": 600
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"./plugins/catchtail/hooks/catchtail-hook.js\"",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}

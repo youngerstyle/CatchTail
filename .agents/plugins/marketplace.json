@@ -1,0 +1,20 @@
+{
+  "name": "catchtail-local",
+  "interface": {
+    "displayName": "CatchTail Local"
+  },
+  "plugins": [
+    {
+      "name": "catchtail",
+      "source": {
+        "source": "local",
+        "path": "./plugins/catchtail"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
