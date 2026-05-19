@@ -38,8 +38,8 @@
       "Open CatchTail and keep this session waiting."
     ],
     "brandColor": "#2563EB",
-    "composerIcon": "./assets/catchtail-small.svg",
-    "logo": "./assets/catchtail-app.svg",
+    "composerIcon": "./assets/catchtail-small.png",
+    "logo": "./assets/catchtail-app.png",
     "screenshots": []
   }
 }
