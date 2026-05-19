@@ -32,7 +32,7 @@ alive until you explicitly stop it.
    启动交互式工作流
    ```
 
-After that, send follow-up messages, files, or stop requests through the local
+After that, send follow-up messages, files, structured refs, or stop requests through the local
 console while Codex keeps working.
 
 ## How It Works
@@ -95,7 +95,7 @@ node $env:USERPROFILE\.codex\catchtail\bin\catchtail.js serve
 1. Open the target project or folder in Codex.
 2. Ask Codex `安装并初始化 https://github.com/youngerstyle/CatchTail`.
 3. Tell Codex `启动交互式工作流`.
-4. Use the console to send follow-up messages or attachments.
+4. Use the console to send follow-up messages, attachments, or structured refs.
 5. Codex claims queued input, handles it, completes it, and waits again.
 6. Stop the queue from the console when you want the workflow to end.
 

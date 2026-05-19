@@ -27,7 +27,8 @@ export function createServer({ root = process.cwd(), openFile = openPathWithDefa
         const id = runtime.enqueueMessage({
           body: String(body.body ?? ""),
           kind: body.kind ?? "message",
-          files: Array.isArray(body.files) ? body.files : []
+          files: Array.isArray(body.files) ? body.files : [],
+          refs: normalizeRefs(body.refs)
         });
         notifyWaiters(waiters, { ok: true, reason: "message", id, sessionId: runtime.sessionId });
         return sendJson(response, { ok: true, id, sessionId: runtime.sessionId }, { cors: true });
@@ -96,7 +97,8 @@ export function createServer({ root = process.cwd(), openFile = openPathWithDefa
         const id = runtime.enqueueMessage({
           body: String(body.body ?? ""),
           kind: body.kind ?? "message",
-          files: Array.isArray(body.files) ? body.files : []
+          files: Array.isArray(body.files) ? body.files : [],
+          refs: normalizeRefs(body.refs)
         });
         notifyWaiters(waiters, { ok: true, reason: "message", id, sessionId: runtime.sessionId });
         return sendJson(response, { ok: true, id, sessionId: runtime.sessionId });
@@ -256,6 +258,16 @@ async function readJson(request) {
   let data = "";
   for await (const chunk of request) data += chunk;
   return data ? JSON.parse(data) : {};
+}
+
+function normalizeRefs(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((ref) => ({
+      type: String(ref?.type ?? "path").trim().toLowerCase(),
+      value: String(ref?.value ?? "").trim()
+    }))
+    .filter((ref) => ref.value && ["skill", "plugin", "path"].includes(ref.type));
 }
 
 async function saveUploadedFiles(request, root, sessionId) {
@@ -530,6 +542,33 @@ function renderConsole() {
       padding: 12px 12px 0;
     }
     .attachments.has-items { display: flex; }
+    .context-panel {
+      display: grid;
+      grid-template-columns: 116px 1fr auto;
+      gap: 8px;
+      padding: 0 12px 10px;
+    }
+    .context-panel[hidden] { display: none; }
+    .context-panel select,
+    .context-panel input {
+      height: 34px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--soft);
+      color: var(--text);
+      font: inherit;
+      font-size: 13px;
+      padding: 0 10px;
+      min-width: 0;
+    }
+    .context-panel button {
+      height: 34px;
+      border-radius: 10px;
+      background: var(--text);
+      color: white;
+      padding: 0 14px;
+      font-size: 13px;
+    }
     .attachment-preview,
     .attachment-file {
       position: relative;
@@ -579,6 +618,11 @@ function renderConsole() {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+    .reference-chip .attachment-icon {
+      color: var(--blue);
+      border-color: #bfdbfe;
+      background: #eff6ff;
     }
     .attachment-remove {
       position: absolute;
@@ -727,6 +771,7 @@ function renderConsole() {
       .queue-kind { display: none; }
       .queue-meta { font-size: 11px; }
       .composer-shell { padding: 10px; }
+      .context-panel { grid-template-columns: 1fr; }
       .session { max-width: 58vw; }
     }
   </style>
@@ -756,12 +801,27 @@ function renderConsole() {
     <section class="composer-shell" aria-label="输入">
       <div class="composer" id="composer">
         <div class="attachments" id="attachments"></div>
+        <div class="context-panel" id="contextPanel" hidden>
+          <select id="contextType" aria-label="引用类型">
+            <option value="skill">Skill</option>
+            <option value="plugin">Plugin</option>
+            <option value="path">Path</option>
+          </select>
+          <input id="contextValue" type="text" placeholder="输入 skill、plugin 名称或本地路径" />
+          <button id="contextAdd" type="button">添加</button>
+        </div>
         <textarea id="message" placeholder="发消息、追加任务，或拖入文件"></textarea>
         <div class="toolbar">
           <div class="tools">
             <button class="icon-btn" id="fileButton" title="添加文件" aria-label="添加文件">
               <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+              </svg>
+            </button>
+            <button class="icon-btn" id="contextButton" title="添加上下文引用" aria-label="添加上下文引用">
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M7 8h10M7 12h6m-6 4h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5z" fill="none" stroke="currentColor" stroke-width="1.7"></path>
               </svg>
             </button>
           </div>
@@ -790,11 +850,15 @@ function renderConsole() {
   </div>
   <div class="drop-hint" id="dropHint">松开以上传文件</div>
   <script>
-    const state = { files: [], sessionId: 'default', draftLoaded: false };
+    const state = { files: [], refs: [], sessionId: 'default', draftLoaded: false };
     const message = document.getElementById('message');
     const fileInput = document.getElementById('fileInput');
     const attachments = document.getElementById('attachments');
     const sendButton = document.getElementById('sendButton');
+    const contextPanel = document.getElementById('contextPanel');
+    const contextType = document.getElementById('contextType');
+    const contextValue = document.getElementById('contextValue');
+    const contextAdd = document.getElementById('contextAdd');
     const dropHint = document.getElementById('dropHint');
     const imageViewer = document.getElementById('imageViewer');
     const imageViewerImage = document.getElementById('imageViewerImage');
@@ -819,7 +883,10 @@ function renderConsole() {
     }
 
     function renderQueueItem(item) {
-      const attachmentText = item.files?.length ? item.files.length + ' 个附件' : '无附件';
+      const parts = [];
+      if (item.files?.length) parts.push(item.files.length + ' 个附件');
+      if (item.refs?.length) parts.push(item.refs.length + ' 个引用');
+      const attachmentText = parts.length ? parts.join(' · ') : '无附件';
       return '<div class="queue-item">' +
         '<div class="queue-kind">' + escapeHtml(item.kind) + '</div>' +
         '<div class="queue-body" title="' + escapeHtml(item.body) + '">' + escapeHtml(item.body || '(空消息)') + '</div>' +
@@ -832,9 +899,21 @@ function renderConsole() {
 
 
     function renderAttachments() {
-      attachments.classList.toggle('has-items', state.files.length > 0);
-      attachments.innerHTML = state.files.map(renderAttachment).join('');
+      attachments.classList.toggle('has-items', state.files.length > 0 || state.refs.length > 0);
+      attachments.innerHTML = state.refs.map(renderReference).join('') + state.files.map(renderAttachment).join('');
       updateSendState();
+    }
+
+    function renderReference(ref, index) {
+      const label = ref.type + ': ' + ref.value;
+      const title = escapeHtml(label);
+      return '<div class="attachment-file reference-chip" title="' + title + '">' +
+        '<span class="attachment-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M7 8h10M7 12h6m-6 4h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5z" stroke="currentColor" stroke-width="1.6"/></svg></span>' +
+        '<span class="attachment-name">' + title + '</span>' +
+        '<button class="attachment-remove" type="button" onclick="event.stopPropagation(); removeRef(' + index + ')" aria-label="移除引用">' +
+          '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>' +
+        '</button>' +
+      '</div>';
     }
 
     function renderAttachment(file, index) {
@@ -880,9 +959,16 @@ function renderConsole() {
     function clearFiles() {
       state.files.forEach(revokePreview);
       state.files = [];
+      state.refs = [];
       renderAttachments();
       clearDraft();
     }
+
+    window.removeRef = function removeRef(index) {
+      state.refs.splice(index, 1);
+      renderAttachments();
+      saveDraft();
+    };
 
     window.removeFile = function removeFile(index) {
       const removed = state.files.splice(index, 1);
@@ -956,6 +1042,17 @@ function renderConsole() {
       saveDraft();
     }
 
+    function addReference() {
+      const type = contextType.value;
+      const value = contextValue.value.trim();
+      if (!value) return;
+      state.refs.push({ type, value });
+      contextValue.value = '';
+      contextPanel.hidden = true;
+      renderAttachments();
+      saveDraft();
+    }
+
     function pastedFilename(file) {
       const ext = file.type === 'image/jpeg' ? 'jpg' : file.type === 'image/webp' ? 'webp' : 'png';
       const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\\.\\d+Z$/, '').replace('T', '-');
@@ -964,7 +1061,7 @@ function renderConsole() {
 
     async function sendMessage() {
       const body = message.value.trim();
-      if (!body && !state.files.length) return;
+      if (!body && !state.files.length && !state.refs.length) return;
       sendButton.disabled = true;
       const uploaded = await uploadFiles();
       await api('/api/messages', {
@@ -973,7 +1070,8 @@ function renderConsole() {
         body: JSON.stringify({
           kind: 'message',
           body,
-          files: uploaded.map(file => file.path)
+          files: uploaded.map(file => file.path),
+          refs: state.refs
         })
       });
       message.value = '';
@@ -1035,11 +1133,12 @@ function renderConsole() {
     function saveDraft() {
       const body = message.value;
       const files = serializableFiles();
-      if (!body && !files.length) {
+      const refs = state.refs;
+      if (!body && !files.length && !refs.length) {
         clearDraft();
         return;
       }
-      localStorage.setItem(draftKey(), JSON.stringify({ body, files }));
+      localStorage.setItem(draftKey(), JSON.stringify({ body, files, refs }));
     }
 
     function loadDraft() {
@@ -1059,6 +1158,11 @@ function renderConsole() {
               size: file.size || 0
             }))
           : [];
+        state.refs = Array.isArray(draft.refs)
+          ? draft.refs
+              .map(ref => ({ type: ref.type || 'path', value: ref.value || '' }))
+              .filter(ref => ref.value)
+          : [];
         renderAttachments();
         resizeTextArea();
         updateSendState();
@@ -1077,7 +1181,7 @@ function renderConsole() {
     }
 
     function updateSendState() {
-      sendButton.disabled = !message.value.trim() && state.files.length === 0;
+      sendButton.disabled = !message.value.trim() && state.files.length === 0 && state.refs.length === 0;
     }
 
     function escapeHtml(value) {
@@ -1085,6 +1189,17 @@ function renderConsole() {
     }
 
     document.getElementById('fileButton').addEventListener('click', () => fileInput.click());
+    document.getElementById('contextButton').addEventListener('click', () => {
+      contextPanel.hidden = !contextPanel.hidden;
+      if (!contextPanel.hidden) contextValue.focus();
+    });
+    contextAdd.addEventListener('click', addReference);
+    contextValue.addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        addReference();
+      }
+    });
     document.getElementById('imageViewerClose').addEventListener('click', closeImageViewer);
     document.getElementById('imageViewerStage').addEventListener('click', closeImageViewer);
     document.addEventListener('keydown', event => {

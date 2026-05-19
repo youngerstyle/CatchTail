@@ -21,8 +21,8 @@ Protocol:
   exact project-local CLI path.
 - When handling user input, claim one queued message before acting on it.
 - After claiming a message, print `**处理队列消息：**`, then print the message
-  body inside a fenced `text` code block, then list attachment paths before
-  handling it.
+  body inside a fenced `text` code block, then list attachment paths and context
+  refs before handling it.
 - After handling the message, mark it complete with a short result.
 - If the milestone is still incomplete after completion, immediately wait again
   instead of sending a final response.

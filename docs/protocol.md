@@ -48,6 +48,7 @@ workflow.
       "kind": "message",
       "body": "继续处理下一步",
       "files": [],
+      "refs": [],
       "createdAt": "2026-05-15T00:00:00.000Z"
     }
   ]
@@ -65,7 +66,9 @@ Message kinds:
 - `question`: clarification or answer to a Codex question.
 
 Each message can include `files`, which are local paths to documents, images, or
-other artifacts the agent may inspect.
+other artifacts the agent may inspect. It can also include `refs`, a lightweight
+list of structured references such as `{ "type": "skill", "value": "..." }`,
+`{ "type": "plugin", "value": "..." }`, or `{ "type": "path", "value": "..." }`.
 
 The web console saves uploaded attachments under:
 

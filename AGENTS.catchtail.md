@@ -10,7 +10,7 @@
 - session.jsonl 保存完整历史。
 - 待处理消息按 createdAt 顺序处理；不要只阅读 state 后口头总结。
 - 处理用户消息时先运行 `node ./bin/catchtail.js claim` 领取下一条消息。
-- claim 到消息后，先在当前 Codex 对话里打印 `**处理队列消息：**`，再用 fenced `text` 代码块包裹正文，并列出附件路径，方便后续浏览 session 历史。
+- claim 到消息后，先在当前 Codex 对话里打印 `**处理队列消息：**`，再用 fenced `text` 代码块包裹正文，并列出附件路径和上下文引用，方便后续浏览 session 历史。
 - 回复或执行完该消息后，运行 `node ./bin/catchtail.js complete <id> <简短处理结果>` 标记完成。
 - complete 后如果 milestone 仍未 completed，立即运行 `node ./bin/catchtail.js wait` 等待下一条消息；不要发送 final 结束当前回合。
 - wait 运行期间不要在聊天里发送心跳式空闲更新；保持工具等待，只有收到消息、停止、超时或错误需要处理时再说话。
