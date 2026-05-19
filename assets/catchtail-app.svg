@@ -1,16 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="CatchTail">
   <rect width="256" height="256" rx="56" fill="#f8fafc"/>
   <path
-    d="M179 69C145 40 93 47 64 83C36 118 42 166 77 191C108 214 151 211 179 187"
+    d="M181 70C145 39 92 47 63 83C34 119 42 167 78 192C110 215 154 211 183 186"
     fill="none"
     stroke="#111827"
-    stroke-width="34"
+    stroke-width="36"
     stroke-linecap="round"
     stroke-linejoin="round"/>
-  <path
-    d="M178 187C197 198 216 185 220 164"
-    fill="none"
-    stroke="#2563eb"
-    stroke-width="18"
-    stroke-linecap="round"/>
 </svg>
