@@ -365,9 +365,9 @@ function uniquePluginRefs(refs) {
 function frontMatterValue(text, key) {
   const lines = text.split(/\r?\n/);
   for (let index = 0; index < lines.length; index += 1) {
-    const match = lines[index].match(new RegExp(`^${key}:\\s*"?([^"\\n]*)"?\\s*$`));
+    const match = lines[index].match(new RegExp(`^${key}:\\s*(.*)$`));
     if (!match) continue;
-    const value = match[1].trim();
+    const value = stripOptionalQuotes(match[1].trim());
     if (value !== "|" && value !== ">") return value;
     const block = [];
     for (let next = index + 1; next < lines.length; next += 1) {
@@ -379,6 +379,17 @@ function frontMatterValue(text, key) {
     return block.join(" ").replace(/\s+/g, " ").trim();
   }
   return "";
+}
+
+function stripOptionalQuotes(value) {
+  if (value.length >= 2) {
+    const first = value[0];
+    const last = value[value.length - 1];
+    if ((first === `"` && last === `"`) || (first === "'" && last === "'")) {
+      return value.slice(1, -1).trim();
+    }
+  }
+  return value;
 }
 
 function safeReaddir(dir) {

@@ -101,7 +101,10 @@ test("UserPromptSubmit enables interactive mode and returns CatchTail context", 
 test("server queue API can enqueue, claim, and complete a message", async () => {
   const project = tempProject("server");
   mkdirSync(join(project, ".agents", "skills", "demo-skill"), { recursive: true });
-  writeFileSync(join(project, ".agents", "skills", "demo-skill", "SKILL.md"), "---\nname: demo-skill\ndescription: Demo skill\n---\n");
+  writeFileSync(
+    join(project, ".agents", "skills", "demo-skill", "SKILL.md"),
+    "---\nname: demo-skill\ndescription: Demo skill with \"quoted\" trigger text\n---\n"
+  );
   mkdirSync(join(project, ".codex", "plugins", "cache", "local", "demo-plugin", "1.0.0", ".codex-plugin"), { recursive: true });
   writeFileSync(join(project, ".codex", "plugins", "cache", "local", "demo-plugin", "1.0.0", ".codex-plugin", "plugin.json"), JSON.stringify({
     name: "demo-plugin",
@@ -116,6 +119,10 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
   try {
     const refs = await fetch(`${base}/api/refs`).then((response) => response.json());
     assert.equal(refs.skills.some((ref) => ref.value === "demo-skill"), true);
+    assert.equal(
+      refs.skills.find((ref) => ref.value === "demo-skill")?.detail,
+      'Demo skill with "quoted" trigger text'
+    );
     assert.equal(refs.plugins.some((ref) => ref.value === "demo-plugin"), true);
 
     const enqueue = await fetch(`${base}/api/queue?sessionId=session-b`, {
