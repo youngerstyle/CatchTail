@@ -102,8 +102,8 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
   const project = tempProject("server");
   mkdirSync(join(project, ".agents", "skills", "demo-skill"), { recursive: true });
   writeFileSync(join(project, ".agents", "skills", "demo-skill", "SKILL.md"), "---\nname: demo-skill\ndescription: Demo skill\n---\n");
-  mkdirSync(join(project, "plugins", "demo-plugin", ".codex-plugin"), { recursive: true });
-  writeFileSync(join(project, "plugins", "demo-plugin", ".codex-plugin", "plugin.json"), JSON.stringify({
+  mkdirSync(join(project, ".codex", "plugins", "cache", "local", "demo-plugin", "1.0.0", ".codex-plugin"), { recursive: true });
+  writeFileSync(join(project, ".codex", "plugins", "cache", "local", "demo-plugin", "1.0.0", ".codex-plugin", "plugin.json"), JSON.stringify({
     name: "demo-plugin",
     interface: { displayName: "Demo Plugin", shortDescription: "Demo plugin" }
   }));

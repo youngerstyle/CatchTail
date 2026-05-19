@@ -281,12 +281,10 @@ function discoverRefs(root) {
       ...discoverSkills(join(homedir(), ".agents", "skills")),
       ...discoverSkills(join(homedir(), ".codex", "skills"))
     ]),
-    plugins: uniqueRefs([
-      ...discoverPlugins(root),
-      ...discoverPlugins(join(root, "plugins")),
-      ...discoverPlugins(join(homedir(), ".codex", "plugins", "cache")),
-      ...discoverPlugins(join(homedir(), ".agents", "plugins"))
-    ])
+    plugins: uniquePluginRefs([
+      ...discoverPlugins(join(root, ".codex", "plugins", "cache")),
+      ...discoverPlugins(join(homedir(), ".codex", "plugins", "cache"))
+    ].filter(isVisiblePluginRef))
   };
 }
 
@@ -331,17 +329,33 @@ function readPluginRef(path, fallbackName) {
       type: "plugin",
       value: manifest.name || fallbackName,
       label: manifest.interface?.displayName || manifest.name || fallbackName,
-      detail: manifest.interface?.shortDescription || manifest.description || path
+      detail: manifest.interface?.shortDescription || manifest.description || "",
+      source: path
     };
   } catch {
-    return { type: "plugin", value: fallbackName, label: fallbackName, detail: path };
+    return { type: "plugin", value: fallbackName, label: fallbackName, detail: "", source: path };
   }
+}
+
+function isVisiblePluginRef(ref) {
+  const source = ref.source.toLowerCase();
+  return !source.includes("openai-primary-runtime") && !source.includes("openai-bundled-beta");
 }
 
 function uniqueRefs(refs) {
   const seen = new Set();
   return refs.filter((ref) => {
     const key = `${ref.type}:${ref.value}`.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function uniquePluginRefs(refs) {
+  const seen = new Set();
+  return refs.filter((ref) => {
+    const key = (ref.label || ref.value).toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -1277,12 +1291,19 @@ function renderConsole() {
         return;
       }
       const normalized = query.toLowerCase();
-      slash.visible = slash.entries
-        .filter(entry => !slash.filterType || entry.type === slash.filterType)
-        .filter(entry => [entry.label, entry.value, entry.detail].join(' ').toLowerCase().includes(normalized))
-        .slice(0, 24);
+      slash.visible = visibleSlashEntries(normalized, slash.filterType);
       slash.active = slash.visible.length ? Math.min(slash.active, slash.visible.length - 1) : 0;
       renderSlashPalette();
+    }
+
+    function visibleSlashEntries(query, type = null) {
+      const matches = slash.entries
+        .filter(entry => !type || entry.type === type)
+        .filter(entry => [entry.label, entry.value, entry.detail].join(' ').toLowerCase().includes(query));
+      if (query || type) return matches.slice(0, 24);
+      const skills = matches.filter(entry => entry.type === 'skill').slice(0, 14);
+      const plugins = matches.filter(entry => entry.type === 'plugin').slice(0, 8);
+      return [...skills, ...plugins];
     }
 
     function renderSlashPalette() {
@@ -1311,7 +1332,7 @@ function renderConsole() {
     function openSlashPalette(type = null) {
       slash.forced = true;
       slash.filterType = type;
-      slash.visible = slash.entries.filter(entry => !type || entry.type === type).slice(0, 24);
+      slash.visible = visibleSlashEntries('', type);
       slash.active = 0;
       attachMenu.hidden = true;
       renderSlashPalette();
