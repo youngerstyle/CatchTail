@@ -78,6 +78,7 @@ function agentsProtocol(commandPath) {
 - 处理用户消息时先运行 \`node ${commandPath} claim\` 领取下一条消息。
 - 回复或执行完该消息后，运行 \`node ${commandPath} complete <id> <简短处理结果>\` 标记完成。
 - complete 后如果 milestone 仍未 completed，立即运行 \`node ${commandPath} wait\` 等待下一条消息；不要发送 final 结束当前回合。
+- wait 运行期间不要在聊天里发送心跳式空闲更新；保持工具等待，只有收到消息、停止、超时或错误需要处理时再说话。
 - 支持消息中的文件和图片路径；需要时用本地工具读取。
 - 没有待处理消息时，依赖 \`node ${commandPath} wait\` 或 Stop hook 的本地长轮询等待；不要在聊天里高频轮询。
 - 不要把 hook 生成的续跑提示当成用户最终验收；它只是交互循环控制信号。

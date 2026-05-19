@@ -24,5 +24,8 @@ Protocol:
 - After handling the message, mark it complete with a short result.
 - If the milestone is still incomplete after completion, immediately wait again
   instead of sending a final response.
+- While waiting, do not post heartbeat-style idle updates in chat. Keep the wait
+  tool running and speak only when a message, stop signal, timeout, or error
+  needs attention.
 - Only `milestone: completed` is the natural workflow exit condition.
 - Continue to obey Codex file-editing, shell, sandbox, and approval rules.
