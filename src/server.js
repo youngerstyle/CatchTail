@@ -974,29 +974,27 @@ function renderConsole() {
       box-shadow: 0 24px 70px rgba(0, 0, 0, .35);
       background: #fff;
     }
-    .input-flow {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-start;
-      gap: 8px;
-      padding: 16px 18px 8px;
-    }
-    textarea {
-      width: auto;
-      min-width: 180px;
-      flex: 1 1 260px;
+    .message-editor {
+      width: 100%;
       min-height: 74px;
       max-height: 240px;
+      overflow-y: auto;
       border: 0;
       outline: 0;
       resize: none;
-      padding: 0;
+      padding: 16px 18px 8px;
       color: var(--text);
       font: inherit;
       line-height: 1.55;
       background: transparent;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
-    textarea::placeholder { color: #9ca3af; }
+    .message-editor:empty::before {
+      content: attr(data-placeholder);
+      color: #9ca3af;
+      pointer-events: none;
+    }
     .toolbar {
       min-height: 48px;
       display: flex;
@@ -1096,10 +1094,7 @@ function renderConsole() {
       <div class="composer" id="composer">
         <div class="attachments" id="attachments"></div>
         <div class="slash-palette" id="slashPalette" hidden></div>
-        <div class="input-flow">
-          <div class="reference-line" id="referenceLine"></div>
-          <textarea id="message" placeholder="发消息、追加任务，或拖入文件" spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off"></textarea>
-        </div>
+        <div id="message" class="message-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="发消息、追加任务，或拖入文件" spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off"></div>
         <div class="toolbar">
           <div class="tools">
             <button class="icon-btn" id="fileButton" title="添加文件" aria-label="添加文件">
@@ -1149,7 +1144,6 @@ function renderConsole() {
     const message = document.getElementById('message');
     const fileInput = document.getElementById('fileInput');
     const attachments = document.getElementById('attachments');
-    const referenceLine = document.getElementById('referenceLine');
     const sendButton = document.getElementById('sendButton');
     const slashPalette = document.getElementById('slashPalette');
     const skillButton = document.getElementById('skillButton');
@@ -1202,22 +1196,20 @@ function renderConsole() {
 
 
     function renderAttachments() {
-      referenceLine.classList.toggle('has-items', state.refs.length > 0);
-      referenceLine.innerHTML = state.refs.map(renderReference).join('');
       attachments.classList.toggle('has-items', state.files.length > 0);
       attachments.innerHTML = state.files.map(renderAttachment).join('');
       updateSendState();
     }
 
-    function renderReference(ref, index) {
+    function renderReference(ref) {
       const meta = referenceMeta(ref);
       const title = escapeHtml(meta.title);
       const kind = escapeHtml(ref.type === 'plugin' ? '插件' : '技能');
-      return '<span class="reference-token" title="' + title + '">' +
+      return '<span class="reference-token" contenteditable="false" data-ref-id="' + escapeHtml(ref.id) + '" title="' + title + '">' +
         '<span class="reference-token-icon" aria-hidden="true">' + referenceIcon(ref.type) + '</span>' +
         '<span class="reference-token-name">' + escapeHtml(meta.label) + '</span>' +
         '<span class="reference-kind">' + kind + '</span>' +
-        '<button class="reference-remove" type="button" onclick="event.stopPropagation(); removeRef(' + index + ')" aria-label="移除上下文">' +
+        '<button class="reference-remove" type="button" onclick="event.stopPropagation(); removeRef(&quot;' + escapeHtml(ref.id) + '&quot;)" aria-label="移除上下文">' +
           '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>' +
         '</button>' +
       '</span>';
@@ -1289,11 +1281,16 @@ function renderConsole() {
       clearDraft();
     }
 
-    window.removeRef = function removeRef(index) {
-      state.refs.splice(index, 1);
+    window.removeRef = function removeRef(id) {
+      state.refs = state.refs.filter(ref => ref.id !== id);
+      message.querySelector('[data-ref-id="' + cssEscape(id) + '"]')?.remove();
       renderAttachments();
       saveDraft();
     };
+
+    function cssEscape(value) {
+      return String(value).replace(/["\\]/g, '\\$&');
+    }
 
     window.removeFile = function removeFile(index) {
       const removed = state.files.splice(index, 1);
@@ -1369,7 +1366,7 @@ function renderConsole() {
 
     function slashQuery() {
       if (slash.forced) return '';
-      const before = message.value.slice(0, message.selectionStart ?? message.value.length);
+      const before = textBeforeCursor();
       return before.match(/(?:^|\\s)\\/([^\\s/]*)$/)?.[1] ?? null;
     }
 
@@ -1459,15 +1456,12 @@ function renderConsole() {
     function selectSlashEntry(index = slash.active) {
       const entry = slash.visible[index];
       if (!entry) return;
-      state.refs.push({ type: entry.type, value: entry.value, label: entry.label, detail: entry.detail });
-      if (!slash.forced) {
-        const cursor = message.selectionStart ?? message.value.length;
-        const before = message.value.slice(0, cursor).replace(/(?:^|\\s)\\/([^\\s/]*)$/, (match) => match.startsWith(' ') ? ' ' : '');
-        message.value = before + message.value.slice(cursor);
-      }
+      const ref = { id: crypto.randomUUID(), type: entry.type, value: entry.value, label: entry.label, detail: entry.detail };
+      state.refs.push(ref);
+      if (!slash.forced) deleteSlashQueryBeforeCursor();
+      insertReferenceToken(ref);
       hideSlashPalette();
       renderAttachments();
-      resizeTextArea();
       saveDraft();
       updateSendState();
       message.focus();
@@ -1480,7 +1474,7 @@ function renderConsole() {
     }
 
     async function sendMessage() {
-      const body = message.value.trim();
+      const body = editorText().trim();
       if (!body && !state.files.length && !state.refs.length) return;
       sendButton.disabled = true;
       const uploaded = await uploadFiles();
@@ -1494,9 +1488,9 @@ function renderConsole() {
           refs: state.refs
         })
       });
-      message.value = '';
+      message.innerHTML = '';
+      state.refs = [];
       clearFiles();
-      resizeTextArea();
       await refresh();
       updateSendState();
     }
@@ -1551,7 +1545,7 @@ function renderConsole() {
     }
 
     function saveDraft() {
-      const body = message.value;
+      const body = editorText();
       const files = serializableFiles();
       const refs = state.refs;
       if (!body && !files.length && !refs.length) {
@@ -1567,7 +1561,7 @@ function renderConsole() {
       if (!raw) return;
       try {
         const draft = JSON.parse(raw);
-        message.value = draft.body || '';
+        message.textContent = draft.body || '';
         state.files.forEach(revokePreview);
         state.files = Array.isArray(draft.files)
           ? draft.files.map(file => ({
@@ -1580,11 +1574,11 @@ function renderConsole() {
           : [];
         state.refs = Array.isArray(draft.refs)
           ? draft.refs
-              .map(ref => ({ type: ref.type || 'path', value: ref.value || '', label: ref.label || '', detail: ref.detail || '' }))
+              .map(ref => ({ id: ref.id || crypto.randomUUID(), type: ref.type || 'path', value: ref.value || '', label: ref.label || '', detail: ref.detail || '' }))
               .filter(ref => ref.value)
           : [];
+        for (const ref of state.refs) insertReferenceToken(ref, true);
         renderAttachments();
-        resizeTextArea();
         updateSendState();
       } catch {
         clearDraft();
@@ -1595,13 +1589,69 @@ function renderConsole() {
       localStorage.removeItem(draftKey());
     }
 
-    function resizeTextArea() {
-      message.style.height = 'auto';
-      message.style.height = Math.min(message.scrollHeight, 240) + 'px';
+    function editorText() {
+      const clone = message.cloneNode(true);
+      clone.querySelectorAll('.reference-token').forEach(node => node.remove());
+      return clone.textContent || '';
+    }
+
+    function textBeforeCursor() {
+      const selection = window.getSelection();
+      if (!selection?.rangeCount || !message.contains(selection.anchorNode)) return editorText();
+      const range = selection.getRangeAt(0).cloneRange();
+      const before = document.createRange();
+      before.selectNodeContents(message);
+      before.setEnd(range.endContainer, range.endOffset);
+      const fragment = before.cloneContents();
+      fragment.querySelectorAll?.('.reference-token').forEach(node => node.remove());
+      return fragment.textContent || '';
+    }
+
+    function deleteSlashQueryBeforeCursor() {
+      const before = textBeforeCursor();
+      const match = before.match(/(?:^|\\s)\\/([^\\s/]*)$/);
+      if (!match) return;
+      const deleteCount = match[0].startsWith(' ') ? match[0].length - 1 : match[0].length;
+      const selection = window.getSelection();
+      if (!selection?.rangeCount) return;
+      for (let index = 0; index < deleteCount; index += 1) selection.modify('extend', 'backward', 'character');
+      document.execCommand('delete');
+    }
+
+    function insertReferenceToken(ref, atStart = false) {
+      const template = document.createElement('template');
+      template.innerHTML = renderReference(ref);
+      const token = template.content.firstElementChild;
+      const spacer = document.createTextNode('\\u00a0');
+      if (atStart) {
+        message.prepend(spacer);
+        message.prepend(token);
+        return;
+      }
+      const selection = window.getSelection();
+      const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+      if (!range || !message.contains(range.commonAncestorContainer)) {
+        message.append(token, spacer);
+        placeCursorAfter(spacer);
+        return;
+      }
+      range.deleteContents();
+      range.insertNode(spacer);
+      range.insertNode(token);
+      placeCursorAfter(spacer);
+    }
+
+    function placeCursorAfter(node) {
+      const range = document.createRange();
+      range.setStartAfter(node);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
     }
 
     function updateSendState() {
-      sendButton.disabled = !message.value.trim() && state.files.length === 0 && state.refs.length === 0;
+      sendButton.disabled = !editorText().trim() && state.files.length === 0 && state.refs.length === 0;
     }
 
     function escapeHtml(value) {
@@ -1637,7 +1687,6 @@ function renderConsole() {
     });
     sendButton.addEventListener('click', sendMessage);
     message.addEventListener('input', () => {
-      resizeTextArea();
       updateSendState();
       saveDraft();
       slash.forced = false;
