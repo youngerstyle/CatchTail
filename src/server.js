@@ -309,7 +309,7 @@ function readSkillRef(path, fallbackName) {
     type: "skill",
     value: frontMatterValue(text, "name") || fallbackName,
     label: frontMatterValue(text, "name") || fallbackName,
-    detail: frontMatterValue(text, "description") || path
+    detail: frontMatterValue(text, "description")
   };
 }
 
@@ -349,8 +349,22 @@ function uniqueRefs(refs) {
 }
 
 function frontMatterValue(text, key) {
-  const match = text.match(new RegExp(`^${key}:\\s*"?([^"\\n]+)"?\\s*$`, "m"));
-  return match?.[1]?.trim() ?? "";
+  const lines = text.split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    const match = lines[index].match(new RegExp(`^${key}:\\s*"?([^"\\n]*)"?\\s*$`));
+    if (!match) continue;
+    const value = match[1].trim();
+    if (value !== "|" && value !== ">") return value;
+    const block = [];
+    for (let next = index + 1; next < lines.length; next += 1) {
+      if (lines[next].startsWith("---")) break;
+      if (!/^\s+/.test(lines[next]) && lines[next].trim()) break;
+      const trimmed = lines[next].trim();
+      if (trimmed) block.push(trimmed);
+    }
+    return block.join(" ").replace(/\s+/g, " ").trim();
+  }
+  return "";
 }
 
 function safeReaddir(dir) {
@@ -650,7 +664,7 @@ function renderConsole() {
     }
     .slash-palette[hidden] { display: none; }
     .slash-group {
-      padding: 8px 10px 4px;
+      padding: 10px 12px 6px;
       color: var(--muted);
       font-size: 11px;
       font-weight: 650;
@@ -659,11 +673,11 @@ function renderConsole() {
     .slash-item {
       display: grid;
       grid-template-columns: 24px minmax(0, 1fr) auto;
-      gap: 10px;
+      gap: 12px;
       align-items: center;
       width: 100%;
-      min-height: 38px;
-      padding: 7px 10px;
+      min-height: 46px;
+      padding: 9px 12px;
       border-radius: 10px;
       text-align: left;
     }
