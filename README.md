@@ -149,6 +149,15 @@ git pull
 node .\scripts\install.mjs C:\path\to\your-project
 ```
 
+## Verification
+
+Before publishing or changing the hook/runtime protocol, run:
+
+```powershell
+node --test
+npm pack --dry-run
+```
+
 ## Uninstall
 
 Run:
