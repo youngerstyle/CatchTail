@@ -657,12 +657,30 @@ function renderConsole() {
       overflow: auto;
       border: 1px solid var(--line);
       border-radius: 16px;
-      padding: 8px;
+      padding: 0 8px 8px;
       background: rgba(255, 255, 255, .96);
       box-shadow: 0 18px 48px rgba(15, 23, 42, .14);
       z-index: 8;
     }
     .slash-palette[hidden] { display: none; }
+    .slash-palette::-webkit-scrollbar {
+      width: 10px;
+    }
+    .slash-palette::-webkit-scrollbar-track {
+      background: transparent;
+      margin: 10px 0;
+    }
+    .slash-palette::-webkit-scrollbar-thumb {
+      background: rgba(107, 114, 128, .45);
+      background-clip: content-box;
+      border: 3px solid transparent;
+      border-radius: 999px;
+    }
+    .slash-palette::-webkit-scrollbar-button {
+      width: 0;
+      height: 0;
+      display: none;
+    }
     .attach-menu {
       position: absolute;
       left: 10px;
@@ -692,15 +710,19 @@ function renderConsole() {
     .attach-menu svg { color: var(--muted); }
     .slash-group {
       position: sticky;
-      top: -8px;
+      top: 0;
       z-index: 1;
-      padding: 10px 12px 6px;
+      margin: 0 -8px 4px;
+      padding: 10px 20px 6px;
       color: var(--muted);
       font-size: 11px;
       font-weight: 650;
       text-transform: uppercase;
       background: rgba(255, 255, 255, .96);
       backdrop-filter: blur(8px);
+    }
+    .slash-group:first-child {
+      border-radius: 15px 15px 0 0;
     }
     .slash-item {
       display: grid;
