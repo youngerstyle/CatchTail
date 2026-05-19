@@ -1,8 +1,7 @@
-# CatchTail Plugin
+# CatchTail
 
-This directory is the marketplace-style mirror of the root CatchTail plugin.
-The repository root is also a complete plugin project with its own
-`.codex-plugin/plugin.json`.
+CatchTail is a Codex plugin for keeping long-running Codex sessions interactive
+through hooks, a local queue, and a browser console.
 
 CatchTail is a Codex hook sidecar for long-running interactive sessions. It uses
 only `UserPromptSubmit` and `Stop`, plus a local queue and session history.
@@ -11,17 +10,12 @@ preview, and opening uploaded files with the system default application.
 
 ## Install Into A Project
 
-Copy this plugin directory to the target project as:
-
-```text
-plugins/catchtail/
-```
-
-Then run from the target project root:
+After installing or cloning this plugin, run the project installer from the
+plugin root:
 
 ```powershell
-node .\plugins\catchtail\scripts\install.mjs
-node .\plugins\catchtail\bin\catchtail.js serve
+node .\scripts\install.mjs <target-project>
+node .\bin\catchtail.js serve
 ```
 
 If you install it as an npm package or unpacked tarball under
