@@ -100,6 +100,13 @@ test("UserPromptSubmit enables interactive mode and returns CatchTail context", 
 
 test("server queue API can enqueue, claim, and complete a message", async () => {
   const project = tempProject("server");
+  mkdirSync(join(project, ".agents", "skills", "demo-skill"), { recursive: true });
+  writeFileSync(join(project, ".agents", "skills", "demo-skill", "SKILL.md"), "---\nname: demo-skill\ndescription: Demo skill\n---\n");
+  mkdirSync(join(project, "plugins", "demo-plugin", ".codex-plugin"), { recursive: true });
+  writeFileSync(join(project, "plugins", "demo-plugin", ".codex-plugin", "plugin.json"), JSON.stringify({
+    name: "demo-plugin",
+    interface: { displayName: "Demo Plugin", shortDescription: "Demo plugin" }
+  }));
   const server = createServer({ root: project });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -107,6 +114,10 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
   const base = `http://127.0.0.1:${port}`;
 
   try {
+    const refs = await fetch(`${base}/api/refs`).then((response) => response.json());
+    assert.equal(refs.skills.some((ref) => ref.value === "demo-skill"), true);
+    assert.equal(refs.plugins.some((ref) => ref.value === "demo-plugin"), true);
+
     const enqueue = await fetch(`${base}/api/queue?sessionId=session-b`, {
       method: "POST",
       headers: { "content-type": "application/json" },

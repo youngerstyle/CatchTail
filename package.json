@@ -1,6 +1,6 @@
 {
   "name": "catchtail",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "type": "module",
   "description": "A lightweight Codex hook sidecar for long-running interactive sessions.",
   "license": "MIT",

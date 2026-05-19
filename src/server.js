@@ -1,7 +1,8 @@
 import { createServer as createHttpServer } from "node:http";
 import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
-import { extname, join, relative, resolve } from "node:path";
+import { homedir } from "node:os";
+import { basename, extname, join, relative, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { CatchTailRuntime } from "./core.js";
 
@@ -70,6 +71,9 @@ export function createServer({ root = process.cwd(), openFile = openPathWithDefa
           sessionId: runtime.sessionId,
           items: readJsonl(runtime.sessionLogPath)
         });
+      }
+      if (request.method === "GET" && url.pathname === "/api/refs") {
+        return sendJson(response, discoverRefs(root));
       }
       if (request.method === "GET" && url.pathname === "/api/file") {
         const path = assertOpenableUpload(root, url.searchParams.get("path"));
@@ -268,6 +272,93 @@ function normalizeRefs(value) {
       value: String(ref?.value ?? "").trim()
     }))
     .filter((ref) => ref.value && ["skill", "plugin", "path"].includes(ref.type));
+}
+
+function discoverRefs(root) {
+  return {
+    skills: uniqueRefs([
+      ...discoverSkills(join(root, ".agents", "skills")),
+      ...discoverSkills(join(homedir(), ".agents", "skills")),
+      ...discoverSkills(join(homedir(), ".codex", "skills"))
+    ]),
+    plugins: uniqueRefs([
+      ...discoverPlugins(root),
+      ...discoverPlugins(join(root, "plugins")),
+      ...discoverPlugins(join(homedir(), ".codex", "plugins", "cache")),
+      ...discoverPlugins(join(homedir(), ".agents", "plugins"))
+    ])
+  };
+}
+
+function discoverSkills(dir, depth = 0) {
+  if (!existsSync(dir) || depth > 3) return [];
+  const results = [];
+  for (const entry of safeReaddir(dir)) {
+    if (!entry.isDirectory()) continue;
+    const path = join(dir, entry.name);
+    const skillPath = join(path, "SKILL.md");
+    if (existsSync(skillPath)) results.push(readSkillRef(skillPath, entry.name));
+    results.push(...discoverSkills(path, depth + 1));
+  }
+  return results.slice(0, 200);
+}
+
+function readSkillRef(path, fallbackName) {
+  const text = readFileSync(path, "utf8");
+  return {
+    type: "skill",
+    value: frontMatterValue(text, "name") || fallbackName,
+    label: frontMatterValue(text, "name") || fallbackName,
+    detail: frontMatterValue(text, "description") || path
+  };
+}
+
+function discoverPlugins(dir, depth = 0) {
+  if (!existsSync(dir) || depth > 4) return [];
+  const results = [];
+  const manifestPath = join(dir, ".codex-plugin", "plugin.json");
+  if (existsSync(manifestPath)) results.push(readPluginRef(manifestPath, basename(dir)));
+  for (const entry of safeReaddir(dir)) {
+    if (entry.isDirectory()) results.push(...discoverPlugins(join(dir, entry.name), depth + 1));
+  }
+  return results.slice(0, 100);
+}
+
+function readPluginRef(path, fallbackName) {
+  try {
+    const manifest = JSON.parse(stripBom(readFileSync(path, "utf8")));
+    return {
+      type: "plugin",
+      value: manifest.name || fallbackName,
+      label: manifest.interface?.displayName || manifest.name || fallbackName,
+      detail: manifest.interface?.shortDescription || manifest.description || path
+    };
+  } catch {
+    return { type: "plugin", value: fallbackName, label: fallbackName, detail: path };
+  }
+}
+
+function uniqueRefs(refs) {
+  const seen = new Set();
+  return refs.filter((ref) => {
+    const key = `${ref.type}:${ref.value}`.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function frontMatterValue(text, key) {
+  const match = text.match(new RegExp(`^${key}:\\s*"?([^"\\n]+)"?\\s*$`, "m"));
+  return match?.[1]?.trim() ?? "";
+}
+
+function safeReaddir(dir) {
+  try {
+    return readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
 }
 
 async function saveUploadedFiles(request, root, sessionId) {
@@ -542,32 +633,64 @@ function renderConsole() {
       padding: 12px 12px 0;
     }
     .attachments.has-items { display: flex; }
-    .context-panel {
+    .slash-palette {
+      max-height: 260px;
+      overflow: auto;
+      border-bottom: 1px solid var(--line);
+      padding: 6px;
+      background: rgba(255, 255, 255, .96);
+    }
+    .slash-palette[hidden] { display: none; }
+    .slash-group {
+      padding: 8px 10px 4px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 650;
+      text-transform: uppercase;
+    }
+    .slash-item {
       display: grid;
-      grid-template-columns: 116px 1fr auto;
-      gap: 8px;
-      padding: 0 12px 10px;
-    }
-    .context-panel[hidden] { display: none; }
-    .context-panel select,
-    .context-panel input {
-      height: 34px;
-      border: 1px solid var(--line);
+      grid-template-columns: 24px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      width: 100%;
+      min-height: 38px;
+      padding: 7px 10px;
       border-radius: 10px;
+      text-align: left;
+    }
+    .slash-item:hover,
+    .slash-item.active {
       background: var(--soft);
-      color: var(--text);
-      font: inherit;
-      font-size: 13px;
-      padding: 0 10px;
-      min-width: 0;
     }
-    .context-panel button {
-      height: 34px;
-      border-radius: 10px;
-      background: var(--text);
-      color: white;
-      padding: 0 14px;
+    .slash-icon {
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 7px;
+      color: var(--blue);
+      background: #eff6ff;
+    }
+    .slash-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       font-size: 13px;
+    }
+    .slash-detail {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .slash-type {
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
     }
     .attachment-preview,
     .attachment-file {
@@ -771,7 +894,6 @@ function renderConsole() {
       .queue-kind { display: none; }
       .queue-meta { font-size: 11px; }
       .composer-shell { padding: 10px; }
-      .context-panel { grid-template-columns: 1fr; }
       .session { max-width: 58vw; }
     }
   </style>
@@ -801,15 +923,7 @@ function renderConsole() {
     <section class="composer-shell" aria-label="输入">
       <div class="composer" id="composer">
         <div class="attachments" id="attachments"></div>
-        <div class="context-panel" id="contextPanel" hidden>
-          <select id="contextType" aria-label="引用类型">
-            <option value="skill">Skill</option>
-            <option value="plugin">Plugin</option>
-            <option value="path">Path</option>
-          </select>
-          <input id="contextValue" type="text" placeholder="输入 skill、plugin 名称或本地路径" />
-          <button id="contextAdd" type="button">添加</button>
-        </div>
+        <div class="slash-palette" id="slashPalette" hidden></div>
         <textarea id="message" placeholder="发消息、追加任务，或拖入文件"></textarea>
         <div class="toolbar">
           <div class="tools">
@@ -818,7 +932,7 @@ function renderConsole() {
                 <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
               </svg>
             </button>
-            <button class="icon-btn" id="contextButton" title="添加上下文引用" aria-label="添加上下文引用">
+            <button class="icon-btn" id="contextButton" title="打开引用面板" aria-label="打开引用面板">
               <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M7 8h10M7 12h6m-6 4h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
                 <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5z" fill="none" stroke="currentColor" stroke-width="1.7"></path>
@@ -851,14 +965,12 @@ function renderConsole() {
   <div class="drop-hint" id="dropHint">松开以上传文件</div>
   <script>
     const state = { files: [], refs: [], sessionId: 'default', draftLoaded: false };
+    const slash = { entries: [], visible: [], active: 0, forced: false };
     const message = document.getElementById('message');
     const fileInput = document.getElementById('fileInput');
     const attachments = document.getElementById('attachments');
     const sendButton = document.getElementById('sendButton');
-    const contextPanel = document.getElementById('contextPanel');
-    const contextType = document.getElementById('contextType');
-    const contextValue = document.getElementById('contextValue');
-    const contextAdd = document.getElementById('contextAdd');
+    const slashPalette = document.getElementById('slashPalette');
     const dropHint = document.getElementById('dropHint');
     const imageViewer = document.getElementById('imageViewer');
     const imageViewerImage = document.getElementById('imageViewerImage');
@@ -868,6 +980,14 @@ function renderConsole() {
       const res = await fetch(path, options);
       if (!res.ok) throw new Error(await res.text());
       return res.json();
+    }
+
+    async function loadRefs() {
+      const refs = await api('/api/refs');
+      slash.entries = [
+        ...(refs.skills || []).map(ref => ({ ...ref, group: '技能' })),
+        ...(refs.plugins || []).map(ref => ({ ...ref, group: '插件' }))
+      ];
     }
 
     async function refresh() {
@@ -1042,15 +1162,62 @@ function renderConsole() {
       saveDraft();
     }
 
-    function addReference() {
-      const type = contextType.value;
-      const value = contextValue.value.trim();
-      if (!value) return;
-      state.refs.push({ type, value });
-      contextValue.value = '';
-      contextPanel.hidden = true;
+    function slashQuery() {
+      if (slash.forced) return '';
+      const before = message.value.slice(0, message.selectionStart ?? message.value.length);
+      return before.match(/(?:^|\\s)\\/([^\\s/]*)$/)?.[1] ?? null;
+    }
+
+    function updateSlashPalette() {
+      const query = slashQuery();
+      if (query === null) {
+        hideSlashPalette();
+        return;
+      }
+      const normalized = query.toLowerCase();
+      slash.visible = slash.entries
+        .filter(entry => [entry.label, entry.value, entry.detail].join(' ').toLowerCase().includes(normalized))
+        .slice(0, 24);
+      slash.active = Math.min(slash.active, Math.max(0, slash.visible.length - 1));
+      renderSlashPalette();
+    }
+
+    function renderSlashPalette() {
+      slashPalette.hidden = slash.visible.length === 0;
+      slashPalette.innerHTML = slash.visible.map((entry, index) => {
+        const group = index === 0 || slash.visible[index - 1].group !== entry.group
+          ? '<div class="slash-group">' + escapeHtml(entry.group) + '</div>'
+          : '';
+        return group + '<button class="slash-item' + (index === slash.active ? ' active' : '') + '" type="button" data-index="' + index + '">' +
+          '<span class="slash-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M7 8h10M7 12h6m-6 4h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5z" stroke="currentColor" stroke-width="1.6"/></svg></span>' +
+          '<span><span class="slash-label">' + escapeHtml(entry.label || entry.value) + '</span><span class="slash-detail">' + escapeHtml(entry.detail || '') + '</span></span>' +
+          '<span class="slash-type">' + escapeHtml(entry.type) + '</span>' +
+        '</button>';
+      }).join('');
+    }
+
+    function hideSlashPalette() {
+      slashPalette.hidden = true;
+      slash.visible = [];
+      slash.active = 0;
+      slash.forced = false;
+    }
+
+    function selectSlashEntry(index = slash.active) {
+      const entry = slash.visible[index];
+      if (!entry) return;
+      state.refs.push({ type: entry.type, value: entry.value });
+      if (!slash.forced) {
+        const cursor = message.selectionStart ?? message.value.length;
+        const before = message.value.slice(0, cursor).replace(/(?:^|\\s)\\/([^\\s/]*)$/, (match) => match.startsWith(' ') ? ' ' : '');
+        message.value = before + message.value.slice(cursor);
+      }
+      hideSlashPalette();
       renderAttachments();
+      resizeTextArea();
       saveDraft();
+      updateSendState();
+      message.focus();
     }
 
     function pastedFilename(file) {
@@ -1190,15 +1357,15 @@ function renderConsole() {
 
     document.getElementById('fileButton').addEventListener('click', () => fileInput.click());
     document.getElementById('contextButton').addEventListener('click', () => {
-      contextPanel.hidden = !contextPanel.hidden;
-      if (!contextPanel.hidden) contextValue.focus();
+      slash.forced = true;
+      slash.visible = slash.entries.slice(0, 24);
+      slash.active = 0;
+      renderSlashPalette();
+      message.focus();
     });
-    contextAdd.addEventListener('click', addReference);
-    contextValue.addEventListener('keydown', event => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        addReference();
-      }
+    slashPalette.addEventListener('click', event => {
+      const item = event.target.closest('.slash-item');
+      if (item) selectSlashEntry(Number(item.dataset.index));
     });
     document.getElementById('imageViewerClose').addEventListener('click', closeImageViewer);
     document.getElementById('imageViewerStage').addEventListener('click', closeImageViewer);
@@ -1222,8 +1389,34 @@ function renderConsole() {
       resizeTextArea();
       updateSendState();
       saveDraft();
+      slash.forced = false;
+      updateSlashPalette();
     });
     message.addEventListener('keydown', event => {
+      if (!slashPalette.hidden) {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          slash.active = Math.min(slash.active + 1, slash.visible.length - 1);
+          renderSlashPalette();
+          return;
+        }
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          slash.active = Math.max(slash.active - 1, 0);
+          renderSlashPalette();
+          return;
+        }
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          selectSlashEntry();
+          return;
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          hideSlashPalette();
+          return;
+        }
+      }
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
         sendMessage();
@@ -1263,6 +1456,7 @@ function renderConsole() {
     });
 
     renderAttachments();
+    loadRefs().catch(console.error);
     refresh();
     setInterval(refresh, 3000);
   </script>
