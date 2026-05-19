@@ -1,12 +1,13 @@
 ---
 name: catchtail-init
-description: Use when the user asks to 安装并初始化小尾巴, install, initialize, set up, or enable CatchTail in the current Codex project.
+description: Use when the user asks to 安装并初始化 https://github.com/youngerstyle/CatchTail, install, initialize, set up, or enable CatchTail in the current Codex project.
 ---
 
 # CatchTail Init
 
-Use this skill to initialize CatchTail after the plugin has been installed from
-the GitHub repository URL or another plugin source.
+Use this skill to install or initialize CatchTail for the current target project
+when the user provides the GitHub repository URL or CatchTail is already
+installed as a plugin.
 
 Process:
 

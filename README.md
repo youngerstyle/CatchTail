@@ -9,30 +9,24 @@ alive until you explicitly stop it.
 
 ## Quickstart
 
-1. Install CatchTail as a Codex plugin from this GitHub repository URL:
+1. Open the target project or folder in Codex.
+2. Ask Codex to install and initialize CatchTail from this GitHub repository:
 
    ```text
-   https://github.com/youngerstyle/CatchTail
+   安装并初始化 https://github.com/youngerstyle/CatchTail
    ```
 
-2. Open the target project in Codex.
-3. Ask Codex:
-
-   ```text
-   安装并初始化小尾巴
-   ```
-
-4. If Codex asks whether to trust the installed hooks, review the hook command
+3. If Codex asks whether to trust the installed hooks, review the hook command
    and choose trust. CatchTail uses Codex hooks to keep the session alive, and
    that trust step is intentionally controlled by Codex.
 
-5. Open the local console:
+4. Open the local console:
 
    ```text
    http://127.0.0.1:3787
    ```
 
-6. Start the workflow:
+5. Start the workflow:
 
    ```text
    启动交互式工作流
@@ -65,20 +59,16 @@ Codex in the loop instead of treating the turn as done.
 
 ### Codex App / Codex CLI
 
-Use the plugin UI for your Codex environment and install from this repository
-URL:
+Open the target project or folder in Codex, then ask Codex:
 
 ```text
-https://github.com/youngerstyle/CatchTail
+安装并初始化 https://github.com/youngerstyle/CatchTail
 ```
 
-Once the plugin is installed, initialize it from inside the target project:
+This tells Codex both where CatchTail is and which project should receive the
+CatchTail hook/runtime setup.
 
-```text
-安装并初始化小尾巴
-```
-
-The plugin will run the project installer and start the local console. If Codex
+The installer will set up the project hooks and start the local console. If Codex
 prompts you to trust hooks, approve it after reviewing the command. CatchTail
 cannot safely bypass that prompt because it is part of Codex's hook security
 model.
@@ -97,8 +87,8 @@ node C:\path\to\CatchTail\bin\catchtail.js serve
 
 ## The Basic Workflow
 
-1. Install the plugin.
-2. Ask Codex `安装并初始化小尾巴`.
+1. Open the target project or folder in Codex.
+2. Ask Codex `安装并初始化 https://github.com/youngerstyle/CatchTail`.
 3. Tell Codex `启动交互式工作流`.
 4. Use the console to send follow-up messages or attachments.
 5. Codex claims queued input, handles it, completes it, and waits again.

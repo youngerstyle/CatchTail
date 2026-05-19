@@ -34,7 +34,7 @@
     "privacyPolicyURL": "https://github.com/youngerstyle/CatchTail",
     "termsOfServiceURL": "https://github.com/youngerstyle/CatchTail",
     "defaultPrompt": [
-      "安装并初始化小尾巴",
+      "安装并初始化 https://github.com/youngerstyle/CatchTail",
       "Initialize CatchTail in this project.",
       "启动交互式工作流",
       "Open CatchTail and keep this session waiting."
