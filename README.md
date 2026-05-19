@@ -21,22 +21,28 @@ workflow from the local console.
 ## Install
 
 Clone or install this plugin, then run the installer against your target
-project:
+project. The plugin directory and target project directory are different paths:
+
+- `<plugin-dir>`: where CatchTail is installed or cloned.
+- `<target-project>`: the project where Codex will run.
 
 ```powershell
-node .\scripts\install.mjs C:\path\to\your-project
+node <plugin-dir>\scripts\install.mjs <target-project>
 ```
 
-Start the local console from the plugin directory:
+Start the local console from the target project directory, using the CatchTail
+CLI from the plugin directory:
 
 ```powershell
-node .\bin\catchtail.js serve
+cd <target-project>
+node <plugin-dir>\bin\catchtail.js serve
 ```
 
-If CatchTail is installed under `node_modules/catchtail`, use:
+If CatchTail is installed under `node_modules/catchtail`, run these commands
+from the target project root:
 
 ```powershell
-node .\node_modules\catchtail\scripts\install.mjs
+node .\node_modules\catchtail\scripts\install.mjs .
 node .\node_modules\catchtail\bin\catchtail.js serve
 ```
 

@@ -6,8 +6,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/youngerstyle/CatchTail.git",
-    "directory": "plugins/catchtail"
+    "url": "https://github.com/youngerstyle/CatchTail.git"
   },
   "bin": {
     "catchtail": "./bin/catchtail.js"
