@@ -69,10 +69,14 @@ This tells Codex both where CatchTail is and which open project should receive
 the CatchTail hook/runtime setup. No CatchTail skill is required before this
 step; installation is the precondition for the runtime workflow.
 
-The installer will set up the project hooks and start the local console. If Codex
-prompts you to trust hooks, approve it after reviewing the command. CatchTail
-cannot safely bypass that prompt because it is part of Codex's hook security
-model.
+Codex should clone or update CatchTail in a durable local location, such as
+`~/.codex/catchtail`, before running the installer. Do not use a temporary
+directory: the generated hooks reference the local CatchTail checkout.
+
+The installer will set up the project hooks and start the local console. If
+Codex prompts you to trust hooks, approve it after reviewing the command.
+CatchTail cannot safely bypass that prompt because it is part of Codex's hook
+security model.
 
 ### Manual Development Install
 
@@ -80,10 +84,10 @@ Use this when your Codex environment cannot install plugins directly from a
 GitHub repository URL, or when developing CatchTail itself:
 
 ```powershell
-git clone https://github.com/youngerstyle/CatchTail.git
+git clone https://github.com/youngerstyle/CatchTail.git $env:USERPROFILE\.codex\catchtail
 cd C:\path\to\your-project
-node C:\path\to\CatchTail\scripts\install.mjs .
-node C:\path\to\CatchTail\bin\catchtail.js serve
+node $env:USERPROFILE\.codex\catchtail\scripts\install.mjs .
+node $env:USERPROFILE\.codex\catchtail\bin\catchtail.js serve
 ```
 
 ## The Basic Workflow

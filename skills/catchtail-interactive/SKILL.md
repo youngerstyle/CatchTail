@@ -8,8 +8,9 @@ description: 当用户说“启动交互式工作流”，或要求 Codex 通过
 Use this skill when CatchTail interactive mode is already initialized in the
 current project.
 
-If the current project has not been initialized yet, use the `catchtail-init`
-skill first.
+If the current project has not been initialized yet, ask the user to complete
+the installation step first. Installation is a precondition, not a runtime
+CatchTail skill.
 
 Protocol:
 
