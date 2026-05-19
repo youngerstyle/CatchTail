@@ -19,8 +19,9 @@ Protocol:
 - Follow the CatchTail managed block in the target project's `AGENTS.md` for the
   exact project-local CLI path.
 - When handling user input, claim one queued message before acting on it.
-- After claiming a message, print its body and attachment paths in the current
-  Codex conversation before handling it.
+- After claiming a message, print `**处理队列消息：**`, then print the message
+  body inside a fenced `text` code block, then list attachment paths before
+  handling it.
 - After handling the message, mark it complete with a short result.
 - If the milestone is still incomplete after completion, immediately wait again
   instead of sending a final response.
