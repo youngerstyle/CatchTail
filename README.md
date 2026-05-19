@@ -19,7 +19,7 @@ alive until you explicitly stop it.
 3. Ask Codex:
 
    ```text
-   Initialize CatchTail in this project.
+   安装并初始化小尾巴
    ```
 
 4. If Codex asks whether to trust the installed hooks, review the hook command
@@ -75,7 +75,7 @@ https://github.com/youngerstyle/CatchTail
 Once the plugin is installed, initialize it from inside the target project:
 
 ```text
-Initialize CatchTail in this project.
+安装并初始化小尾巴
 ```
 
 The plugin will run the project installer and start the local console. If Codex
@@ -98,7 +98,7 @@ node C:\path\to\CatchTail\bin\catchtail.js serve
 ## The Basic Workflow
 
 1. Install the plugin.
-2. Ask Codex to initialize CatchTail in the current project.
+2. Ask Codex `安装并初始化小尾巴`.
 3. Tell Codex `启动交互式工作流`.
 4. Use the console to send follow-up messages or attachments.
 5. Codex claims queued input, handles it, completes it, and waits again.
