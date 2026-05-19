@@ -664,11 +664,16 @@ function renderConsole() {
     }
     .slash-palette[hidden] { display: none; }
     .slash-group {
+      position: sticky;
+      top: -8px;
+      z-index: 1;
       padding: 10px 12px 6px;
       color: var(--muted);
       font-size: 11px;
       font-weight: 650;
       text-transform: uppercase;
+      background: rgba(255, 255, 255, .96);
+      backdrop-filter: blur(8px);
     }
     .slash-item {
       display: grid;
