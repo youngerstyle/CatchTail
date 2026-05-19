@@ -9,7 +9,12 @@ alive until you explicitly stop it.
 
 ## Quickstart
 
-1. Install CatchTail from your Codex plugin marketplace.
+1. Install CatchTail as a Codex plugin from this GitHub repository URL:
+
+   ```text
+   https://github.com/youngerstyle/CatchTail
+   ```
+
 2. Open the target project in Codex.
 3. Ask Codex:
 
@@ -17,13 +22,17 @@ alive until you explicitly stop it.
    Initialize CatchTail in this project.
    ```
 
-4. Open the local console:
+4. If Codex asks whether to trust the installed hooks, review the hook command
+   and choose trust. CatchTail uses Codex hooks to keep the session alive, and
+   that trust step is intentionally controlled by Codex.
+
+5. Open the local console:
 
    ```text
    http://127.0.0.1:3787
    ```
 
-5. Start the workflow:
+6. Start the workflow:
 
    ```text
    启动交互式工作流
@@ -56,19 +65,28 @@ Codex in the loop instead of treating the turn as done.
 
 ### Codex App / Codex CLI
 
-Use the plugin UI or marketplace flow for your Codex environment. Once the
-plugin is installed, initialize it from inside the target project:
+Use the plugin UI for your Codex environment and install from this repository
+URL:
+
+```text
+https://github.com/youngerstyle/CatchTail
+```
+
+Once the plugin is installed, initialize it from inside the target project:
 
 ```text
 Initialize CatchTail in this project.
 ```
 
-The plugin will run the project installer and start the local console.
+The plugin will run the project installer and start the local console. If Codex
+prompts you to trust hooks, approve it after reviewing the command. CatchTail
+cannot safely bypass that prompt because it is part of Codex's hook security
+model.
 
 ### Manual Development Install
 
-Use this only when developing CatchTail itself or testing before marketplace
-publication:
+Use this when your Codex environment cannot install plugins directly from a
+GitHub repository URL, or when developing CatchTail itself:
 
 ```powershell
 git clone https://github.com/youngerstyle/CatchTail.git
@@ -127,8 +145,9 @@ file-open endpoints stay local to the sidecar and only accept paths inside
 
 ## Updating
 
-Update CatchTail through your plugin marketplace. For manual development
-installs, pull the latest plugin code and rerun the installer:
+Update CatchTail through your Codex plugin UI when installed from the GitHub
+repository URL. For manual development installs, pull the latest plugin code and
+rerun the installer:
 
 ```powershell
 cd C:\path\to\CatchTail
