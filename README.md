@@ -1,58 +1,30 @@
 # CatchTail
 
-CatchTail keeps a long-running Codex session interactive after the normal chat
-turn would otherwise end. It adds a small local sidecar with a queue, session
-history, file uploads, and a browser console, while leaving Codex itself
-untouched.
+CatchTail lets you keep talking to a long-running Codex session while the agent
+is still working.
 
-Use it when you want to keep giving feedback to an agent that is still working:
-send a message, attach an image or document, cancel queued input, or stop the
-workflow from the local console.
+It does not patch Codex. It adds a local sidecar: a queue, session history,
+file uploads, a browser console, and a small hook protocol that keeps the loop
+alive until you explicitly stop it.
 
-## What You Get
+## Quickstart
 
-- Codex hooks for `UserPromptSubmit` and `Stop`.
-- A local console at `http://127.0.0.1:3787`.
-- Queue + session history scoped by Codex `session_id`.
-- Rich text drafts, image previews, file uploads, and system-default file open.
-- Third-party queue API for companion tools or browser extensions.
-- Project installer that writes the hook config, skill, and `AGENTS.md` block.
-
-## Install
-
-Clone or install this plugin, then run the installer against your target
-project. The plugin directory and target project directory are different paths:
-
-- `<plugin-dir>`: where CatchTail is installed or cloned.
-- `<target-project>`: the project where Codex will run.
+Give Codex a tail:
 
 ```powershell
-node <plugin-dir>\scripts\install.mjs <target-project>
+git clone https://github.com/youngerstyle/CatchTail.git
+cd C:\path\to\your-project
+node C:\path\to\CatchTail\scripts\install.mjs .
+node C:\path\to\CatchTail\bin\catchtail.js serve
 ```
 
-Start the local console from the target project directory, using the CatchTail
-CLI from the plugin directory:
-
-```powershell
-cd <target-project>
-node <plugin-dir>\bin\catchtail.js serve
-```
-
-If CatchTail is installed under `node_modules/catchtail`, run these commands
-from the target project root:
-
-```powershell
-node .\node_modules\catchtail\scripts\install.mjs .
-node .\node_modules\catchtail\bin\catchtail.js serve
-```
-
-Then open:
+Open the console:
 
 ```text
 http://127.0.0.1:3787
 ```
 
-In Codex, trust the project hooks if prompted, then say:
+Start Codex in your project, trust the hooks if prompted, then say:
 
 ```text
 启动交互式工作流
@@ -60,7 +32,76 @@ In Codex, trust the project hooks if prompted, then say:
 
 ## How It Works
 
-CatchTail stores runtime data inside the target project:
+CatchTail treats the Codex agent loop as a black box and adds an interaction
+surface around it.
+
+When you start the workflow, CatchTail enables a session-scoped queue. While
+Codex is working, you can use the local console to send feedback, upload files,
+preview images, cancel queued messages, or stop the queue. The agent claims one
+message at a time, handles it, marks it complete, and waits for the next one.
+
+The core loop is:
+
+```text
+claim -> handle -> complete -> wait
+```
+
+The `Stop` hook is the fallback boundary. If the queue is still active, it keeps
+Codex in the loop instead of treating the turn as done.
+
+## Installation
+
+### Codex App / Codex CLI
+
+Until CatchTail is listed in a public plugin marketplace, install it from this
+repository:
+
+```powershell
+git clone https://github.com/youngerstyle/CatchTail.git
+cd C:\path\to\your-project
+node C:\path\to\CatchTail\scripts\install.mjs .
+node C:\path\to\CatchTail\bin\catchtail.js serve
+```
+
+The installer writes:
+
+```text
+.codex/hooks.json
+.agents/skills/catchtail-interactive/SKILL.md
+AGENTS.catchtail.md
+AGENTS.md managed block
+```
+
+If CatchTail is installed under `node_modules/catchtail`, run from the target
+project root:
+
+```powershell
+node .\node_modules\catchtail\scripts\install.mjs .
+node .\node_modules\catchtail\bin\catchtail.js serve
+```
+
+## The Basic Workflow
+
+1. Start CatchTail's console with `serve`.
+2. Tell Codex `启动交互式工作流`.
+3. Send follow-up messages or attachments in the console.
+4. Codex claims queued input, handles it, completes it, and waits again.
+5. Click the stop control in the console when you want the workflow to end.
+
+## What's Inside
+
+```text
+.codex-plugin/plugin.json        Plugin manifest
+hooks.json                       Hook declaration
+skills/catchtail-interactive/    Codex skill instructions
+scripts/install.mjs              Project installer
+scripts/uninstall.mjs            Managed-block cleanup helper
+bin/catchtail.js                 CLI entrypoint
+src/                             Runtime, hook, CLI, and console
+docs/protocol.md                 Protocol details
+```
+
+Runtime data is written to the target project:
 
 ```text
 .catchtail/sessions/<session_id>/state.json
@@ -68,18 +109,6 @@ CatchTail stores runtime data inside the target project:
 .catchtail/sessions/<session_id>/session.jsonl
 .catchtail/uploads/<session_id>/
 ```
-
-The queue only contains unclaimed input. Once Codex claims a message, it is
-removed from `queue.json` and recorded in `session.jsonl`.
-
-The normal agent loop is:
-
-```text
-claim -> handle -> complete -> wait
-```
-
-The `Stop` hook is a safety boundary that keeps the session alive while the
-milestone is incomplete.
 
 ## Queue API
 
@@ -97,25 +126,23 @@ POST /api/queue/complete?sessionId=<id>
 file-open endpoints stay local to the sidecar and only accept paths inside
 `.catchtail/uploads/`.
 
-## Project Files
+## Updating
 
-```text
-.codex-plugin/plugin.json        Plugin manifest
-hooks.json                       Hook declaration
-skills/catchtail-interactive/    Codex skill instructions
-scripts/install.mjs              Project installer
-scripts/uninstall.mjs            Managed-block cleanup helper
-bin/catchtail.js                 CLI entrypoint
-src/                             Runtime, hook, CLI, and console
-docs/protocol.md                 Protocol details
+Pull the latest plugin code, then rerun the installer in any target project
+where you want the managed hook and skill files refreshed:
+
+```powershell
+cd C:\path\to\CatchTail
+git pull
+node .\scripts\install.mjs C:\path\to\your-project
 ```
 
 ## Uninstall
 
-Remove the generated hook files from the target project, or run:
+Run:
 
 ```powershell
-node .\scripts\uninstall.mjs C:\path\to\your-project --remove-agents-block
+node C:\path\to\CatchTail\scripts\uninstall.mjs C:\path\to\your-project --remove-agents-block
 ```
 
 ## Limits
@@ -123,3 +150,7 @@ node .\scripts\uninstall.mjs C:\path\to\your-project --remove-agents-block
 - CatchTail is a sidecar, not a Codex core-loop patch.
 - Codex still controls permissions, sandboxing, and tool approval.
 - If the environment cannot run hooks at all, CatchTail cannot re-enter Codex.
+
+## License
+
+MIT
