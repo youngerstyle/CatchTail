@@ -1002,7 +1002,7 @@ function renderConsole() {
       <div class="composer" id="composer">
         <div class="attachments" id="attachments"></div>
         <div class="slash-palette" id="slashPalette" hidden></div>
-        <textarea id="message" placeholder="发消息、追加任务，或拖入文件"></textarea>
+        <textarea id="message" placeholder="发消息、追加任务，或拖入文件" spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off"></textarea>
         <div class="toolbar">
           <div class="tools">
             <button class="icon-btn" id="fileButton" title="添加文件" aria-label="添加文件">
