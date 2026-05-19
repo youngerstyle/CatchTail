@@ -1006,19 +1006,19 @@ function renderConsole() {
         <div class="toolbar">
           <div class="tools">
             <button class="icon-btn" id="fileButton" title="添加文件" aria-label="添加文件">
-              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="m21.4 11.6-8.5 8.5a6 6 0 0 1-8.5-8.5l8.5-8.5a4 4 0 0 1 5.7 5.7l-8.6 8.5a2 2 0 1 1-2.8-2.8l8-8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path>
               </svg>
             </button>
             <button class="icon-btn" id="skillButton" title="技能" aria-label="技能">
-              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M7 8h10M7 12h6m-6 4h10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
-                <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5z" fill="none" stroke="currentColor" stroke-width="1.7"></path>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="m12 3 8 4.5-8 4.5-8-4.5L12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path>
+                <path d="m4 12 8 4.5 8-4.5M4 16.5l8 4.5 8-4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
               </svg>
             </button>
             <button class="icon-btn" id="pluginButton" title="插件" aria-label="插件">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M9 3h6v6H9zM4 15h6v6H4zM14 15h6v6h-6z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path>
+                <path d="M8 3h8v4h2a3 3 0 1 1 0 6h-2v8H8v-4H6a3 3 0 1 1 0-6h2V3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path>
               </svg>
             </button>
           </div>
