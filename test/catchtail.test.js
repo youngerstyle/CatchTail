@@ -54,8 +54,8 @@ test("installer preserves existing hooks, replaces stale CatchTail hook, and tol
 
 test("plugin manifest has marketplace-facing assets and policy links", () => {
   const manifest = readJson(join(ROOT, ".codex-plugin", "plugin.json"));
-  assert.equal(manifest.interface.composerIcon, "./assets/catchtail-small.png");
-  assert.equal(manifest.interface.logo, "./assets/catchtail-app.png");
+  assert.equal(manifest.interface.composerIcon, "./assets/catchtail-small.svg");
+  assert.equal(manifest.interface.logo, "./assets/catchtail-app.svg");
   assert.deepEqual(manifest.interface.screenshots, []);
   assert.match(manifest.interface.privacyPolicyURL, /PRIVACY\.md$/);
   assert.match(manifest.interface.termsOfServiceURL, /TERMS\.md$/);

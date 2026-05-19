@@ -1,6 +1,6 @@
 {
   "name": "catchtail",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "A lightweight Codex hook sidecar for long-running interactive sessions.",
   "author": {
     "name": "CatchTail",
@@ -38,8 +38,8 @@
       "Open CatchTail and keep this session waiting."
     ],
     "brandColor": "#2563EB",
-    "composerIcon": "./assets/catchtail-small.png",
-    "logo": "./assets/catchtail-app.png",
+    "composerIcon": "./assets/catchtail-small.svg",
+    "logo": "./assets/catchtail-app.svg",
     "screenshots": []
   }
 }
