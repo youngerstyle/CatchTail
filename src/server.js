@@ -155,7 +155,7 @@ function latestActiveSessionId(root) {
     const statePath = join(sessionsDir, name, "state.json");
     if (!existsSync(statePath)) continue;
     try {
-      const state = JSON.parse(readFileSync(statePath, "utf8"));
+      const state = JSON.parse(stripBom(readFileSync(statePath, "utf8")));
       const interactive = state.interactive ?? {};
       if (!interactive.enabled || interactive.milestone === "completed") continue;
       const startedAt = Date.parse(interactive.startedAt ?? "") || 0;
@@ -320,10 +320,14 @@ export function systemOpenCommand(path, platform = process.platform) {
 
 function readJsonl(path) {
   if (!existsSync(path)) return [];
-  return readFileSync(path, "utf8")
+  return stripBom(readFileSync(path, "utf8"))
     .split("\n")
     .filter(Boolean)
     .map((line) => JSON.parse(line));
+}
+
+function stripBom(value) {
+  return value.replace(/^\uFEFF/, "");
 }
 
 function renderConsole() {

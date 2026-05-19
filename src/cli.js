@@ -17,7 +17,7 @@ export async function runCli(
   const command = parsed.argv[0] ?? "help";
   const sessionId = parsed.sessionId;
 
-  if (command === "init") return initProject(root);
+  if (command === "init") return initProject(resolve(parsed.argv[1] ?? root));
   if (command === "serve") return serve(root, Number(parsed.argv[1] ?? 3787));
   if (command === "status") return status(root, sessionId);
   if (command === "wait") {
@@ -62,7 +62,10 @@ function initProject(root) {
   mkdirSync(skillDir, { recursive: true });
   mkdirSync(join(root, ".catchtail", "sessions"), { recursive: true });
 
-  writeFileSync(join(codexDir, "hooks.json"), `${JSON.stringify(hookConfig(), null, 2)}\n`);
+  const hooksPath = join(codexDir, "hooks.json");
+  const existingHooks = readJson(hooksPath, { hooks: {} });
+  mergeHookConfig(existingHooks, hookConfig());
+  writeFileSync(hooksPath, `${JSON.stringify(existingHooks, null, 2)}\n`);
   const cliPath = cliPathForProject(root);
   const protocol = agentsProtocol(cliPath);
   writeFileSync(join(root, "AGENTS.catchtail.md"), `${protocol}\n`);
@@ -178,6 +181,31 @@ function hookConfig() {
       Stop: [{ hooks: [hook] }]
     }
   };
+}
+
+function mergeHookConfig(target, source) {
+  target.hooks ??= {};
+  for (const [eventName, entries] of Object.entries(source.hooks ?? {})) {
+    const existing = Array.isArray(target.hooks[eventName]) ? target.hooks[eventName] : [];
+    target.hooks[eventName] = [
+      ...existing.filter((entry) => !containsCatchTailHook(entry)),
+      ...entries
+    ];
+  }
+}
+
+function containsCatchTailHook(entry) {
+  return Array.isArray(entry?.hooks)
+    && entry.hooks.some((hook) => String(hook?.command ?? "").includes("catchtail-hook.js"));
+}
+
+function readJson(path, fallback) {
+  if (!existsSync(path)) return fallback;
+  return JSON.parse(stripBom(readFileSync(path, "utf8")));
+}
+
+function stripBom(value) {
+  return value.replace(/^\uFEFF/, "");
 }
 
 export function agentsProtocol(cliPath = "./bin/catchtail.js") {

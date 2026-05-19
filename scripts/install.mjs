@@ -23,11 +23,9 @@ mkdirSync(resolve(projectRoot, ".catchtail", "sessions"), { recursive: true });
 const existingHooks = readJson(hooksJsonPath, { hooks: {} });
 const hookCommand = `node "${relative(projectRoot, hookPath).replaceAll("\\", "\\\\")}"`;
 const hook = { type: "command", command: hookCommand, timeout: 600 };
-existingHooks.hooks = {
-  ...existingHooks.hooks,
-  UserPromptSubmit: [{ hooks: [hook] }],
-  Stop: [{ hooks: [hook] }]
-};
+existingHooks.hooks ??= {};
+upsertCatchTailHook(existingHooks.hooks, "UserPromptSubmit", hook);
+upsertCatchTailHook(existingHooks.hooks, "Stop", hook);
 writeFileSync(hooksJsonPath, `${JSON.stringify(existingHooks, null, 2)}\n`);
 
 const protocol = agentsProtocol(cliPath);
@@ -48,7 +46,24 @@ process.stdout.write(
 
 function readJson(path, fallback) {
   if (!existsSync(path)) return fallback;
-  return JSON.parse(readFileSync(path, "utf8"));
+  return JSON.parse(stripBom(readFileSync(path, "utf8")));
+}
+
+function stripBom(value) {
+  return value.replace(/^\uFEFF/, "");
+}
+
+function upsertCatchTailHook(hooksConfig, eventName, hook) {
+  const entries = Array.isArray(hooksConfig[eventName]) ? hooksConfig[eventName] : [];
+  hooksConfig[eventName] = [
+    ...entries.filter((entry) => !containsCatchTailHook(entry)),
+    { hooks: [hook] }
+  ];
+}
+
+function containsCatchTailHook(entry) {
+  return Array.isArray(entry?.hooks)
+    && entry.hooks.some((hook) => String(hook?.command ?? "").includes("catchtail-hook.js"));
 }
 
 function patchAgentsFile(path, protocol) {

@@ -255,15 +255,19 @@ function buildContinuationPrompt(messages, interactive) {
 
 function readJson(path, fallback) {
   if (!existsSync(path)) return structuredClone(fallback);
-  return JSON.parse(readFileSync(path, "utf8"));
+  return JSON.parse(stripBom(readFileSync(path, "utf8")));
 }
 
 function readJsonl(path) {
   if (!existsSync(path)) return [];
-  return readFileSync(path, "utf8")
+  return stripBom(readFileSync(path, "utf8"))
     .split("\n")
     .filter(Boolean)
     .map((line) => JSON.parse(line));
+}
+
+function stripBom(value) {
+  return value.replace(/^\uFEFF/, "");
 }
 
 function atomicWrite(path, content) {
