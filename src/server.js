@@ -686,6 +686,7 @@ function renderConsole() {
       background: rgba(255, 255, 255, .96);
       box-shadow: 0 18px 48px rgba(15, 23, 42, .14);
       z-index: 8;
+      scroll-padding: 48px 0 16px;
     }
     .slash-palette[hidden] { display: none; }
     .slash-palette::-webkit-scrollbar {
@@ -1298,8 +1299,24 @@ function renderConsole() {
           '<span class="slash-type">' + (entry.type === 'skill' ? '技能' : '插件') + '</span>' +
         '</button>';
       }).join('');
-      slashPalette.querySelector('.slash-item.active')?.scrollIntoView({ block: 'nearest' });
+      ensureActiveSlashItemVisible();
       updateToolActive();
+    }
+
+    function ensureActiveSlashItemVisible() {
+      const active = slashPalette.querySelector('.slash-item.active');
+      if (!active) return;
+      const topInset = (slashPalette.querySelector('.slash-group')?.offsetHeight || 0) + 8;
+      const bottomInset = 16;
+      const itemTop = active.offsetTop;
+      const itemBottom = itemTop + active.offsetHeight;
+      const visibleTop = slashPalette.scrollTop + topInset;
+      const visibleBottom = slashPalette.scrollTop + slashPalette.clientHeight - bottomInset;
+      if (itemTop < visibleTop) {
+        slashPalette.scrollTop = Math.max(0, itemTop - topInset);
+      } else if (itemBottom > visibleBottom) {
+        slashPalette.scrollTop = itemBottom - slashPalette.clientHeight + bottomInset;
+      }
     }
 
     function hideSlashPalette() {
