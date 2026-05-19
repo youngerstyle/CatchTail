@@ -693,6 +693,14 @@ function renderConsole() {
       padding: 12px 12px 0;
     }
     .attachments.has-items { display: flex; }
+    .reference-line {
+      display: none;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      padding: 12px 14px 0;
+    }
+    .reference-line.has-items { display: flex; }
     .slash-palette {
       position: absolute;
       left: 0;
@@ -846,32 +854,54 @@ function renderConsole() {
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-    .reference-chip .attachment-icon {
+    .reference-token {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      max-width: min(460px, 100%);
+      min-height: 26px;
+      padding: 3px 6px;
+      border-radius: 8px;
+      color: #1d4ed8;
+      background: #eff6ff;
+      font-size: 13px;
+      line-height: 1.2;
+    }
+    .reference-token-icon {
+      display: grid;
+      place-items: center;
       width: 18px;
       height: 18px;
-      border: 0;
-      border-radius: 0;
-      color: var(--blue);
-      background: transparent;
+      flex: 0 0 auto;
     }
-    .reference-chip {
-      max-width: min(420px, 100%);
-      min-height: 32px;
-      gap: 7px;
-      border-color: #dbeafe;
-      border-radius: 9px;
-      padding: 6px 30px 6px 9px;
-      background: #f8fbff;
-    }
-    .reference-chip .attachment-name {
-      color: #1d4ed8;
+    .reference-token-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
       font-weight: 650;
     }
     .reference-kind {
       flex: 0 0 auto;
-      color: var(--muted);
+      color: #64748b;
       font-size: 11px;
       margin-left: 2px;
+    }
+    .reference-remove {
+      display: grid;
+      place-items: center;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      color: #64748b;
+    }
+    .reference-remove:hover {
+      color: #111827;
+      background: #dbeafe;
+    }
+    .reference-remove svg {
+      width: 11px;
+      height: 11px;
     }
     .attachment-remove {
       position: absolute;
@@ -1056,6 +1086,7 @@ function renderConsole() {
       <div class="composer" id="composer">
         <div class="attachments" id="attachments"></div>
         <div class="slash-palette" id="slashPalette" hidden></div>
+        <div class="reference-line" id="referenceLine"></div>
         <textarea id="message" placeholder="发消息、追加任务，或拖入文件" spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off"></textarea>
         <div class="toolbar">
           <div class="tools">
@@ -1106,6 +1137,7 @@ function renderConsole() {
     const message = document.getElementById('message');
     const fileInput = document.getElementById('fileInput');
     const attachments = document.getElementById('attachments');
+    const referenceLine = document.getElementById('referenceLine');
     const sendButton = document.getElementById('sendButton');
     const slashPalette = document.getElementById('slashPalette');
     const skillButton = document.getElementById('skillButton');
@@ -1158,8 +1190,10 @@ function renderConsole() {
 
 
     function renderAttachments() {
-      attachments.classList.toggle('has-items', state.files.length > 0 || state.refs.length > 0);
-      attachments.innerHTML = state.refs.map(renderReference).join('') + state.files.map(renderAttachment).join('');
+      referenceLine.classList.toggle('has-items', state.refs.length > 0);
+      referenceLine.innerHTML = state.refs.map(renderReference).join('');
+      attachments.classList.toggle('has-items', state.files.length > 0);
+      attachments.innerHTML = state.files.map(renderAttachment).join('');
       updateSendState();
     }
 
@@ -1167,14 +1201,14 @@ function renderConsole() {
       const meta = referenceMeta(ref);
       const title = escapeHtml(meta.title);
       const kind = escapeHtml(ref.type === 'plugin' ? '插件' : '技能');
-      return '<div class="attachment-file reference-chip" title="' + title + '">' +
-        '<span class="attachment-icon" aria-hidden="true">' + referenceIcon(ref.type) + '</span>' +
-        '<span class="attachment-name">' + escapeHtml(meta.label) + '</span>' +
+      return '<span class="reference-token" title="' + title + '">' +
+        '<span class="reference-token-icon" aria-hidden="true">' + referenceIcon(ref.type) + '</span>' +
+        '<span class="reference-token-name">' + escapeHtml(meta.label) + '</span>' +
         '<span class="reference-kind">' + kind + '</span>' +
-        '<button class="attachment-remove" type="button" onclick="event.stopPropagation(); removeRef(' + index + ')" aria-label="移除上下文">' +
+        '<button class="reference-remove" type="button" onclick="event.stopPropagation(); removeRef(' + index + ')" aria-label="移除上下文">' +
           '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>' +
         '</button>' +
-      '</div>';
+      '</span>';
     }
 
     function referenceMeta(ref) {
@@ -1356,7 +1390,7 @@ function renderConsole() {
           ? '<div class="slash-group">' + escapeHtml(entry.group) + '</div>'
           : '';
         return group + '<button class="slash-item' + (index === slash.active ? ' active' : '') + '" type="button" data-index="' + index + '">' +
-          '<span class="slash-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M7 8h10M7 12h6m-6 4h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5z" stroke="currentColor" stroke-width="1.6"/></svg></span>' +
+          '<span class="slash-icon" aria-hidden="true">' + referenceIcon(entry.type) + '</span>' +
           '<span class="slash-text"><span class="slash-label">' + escapeHtml(entry.label || entry.value) + '</span><span class="slash-detail">' + escapeHtml(entry.detail || '') + '</span></span>' +
           '<span class="slash-type">' + (entry.type === 'skill' ? '技能' : '插件') + '</span>' +
         '</button>';
