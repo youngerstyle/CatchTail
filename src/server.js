@@ -617,13 +617,14 @@ function renderConsole() {
       z-index: 3;
     }
     .composer {
+      position: relative;
       max-width: 980px;
       margin: 0 auto;
       border: 1px solid var(--line-strong);
       background: var(--panel);
       border-radius: 18px;
       box-shadow: 0 12px 30px rgba(15, 23, 42, .08);
-      overflow: hidden;
+      overflow: visible;
     }
     .attachments {
       display: none;
@@ -634,11 +635,18 @@ function renderConsole() {
     }
     .attachments.has-items { display: flex; }
     .slash-palette {
-      max-height: 260px;
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: calc(100% + 10px);
+      max-height: min(380px, calc(100vh - 210px));
       overflow: auto;
-      border-bottom: 1px solid var(--line);
-      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 8px;
       background: rgba(255, 255, 255, .96);
+      box-shadow: 0 18px 48px rgba(15, 23, 42, .14);
+      z-index: 8;
     }
     .slash-palette[hidden] { display: none; }
     .slash-group {
@@ -672,12 +680,21 @@ function renderConsole() {
       color: var(--blue);
       background: #eff6ff;
     }
+    .slash-text {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      gap: 8px;
+      align-items: baseline;
+    }
     .slash-label {
       min-width: 0;
+      max-width: 240px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
       font-size: 13px;
+      font-weight: 560;
     }
     .slash-detail {
       min-width: 0;
@@ -894,6 +911,8 @@ function renderConsole() {
       .queue-kind { display: none; }
       .queue-meta { font-size: 11px; }
       .composer-shell { padding: 10px; }
+      .slash-text { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+      .slash-label { max-width: none; }
       .session { max-width: 58vw; }
     }
   </style>
@@ -1178,7 +1197,7 @@ function renderConsole() {
       slash.visible = slash.entries
         .filter(entry => [entry.label, entry.value, entry.detail].join(' ').toLowerCase().includes(normalized))
         .slice(0, 24);
-      slash.active = Math.min(slash.active, Math.max(0, slash.visible.length - 1));
+      slash.active = slash.visible.length ? Math.min(slash.active, slash.visible.length - 1) : 0;
       renderSlashPalette();
     }
 
@@ -1190,10 +1209,11 @@ function renderConsole() {
           : '';
         return group + '<button class="slash-item' + (index === slash.active ? ' active' : '') + '" type="button" data-index="' + index + '">' +
           '<span class="slash-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M7 8h10M7 12h6m-6 4h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5z" stroke="currentColor" stroke-width="1.6"/></svg></span>' +
-          '<span><span class="slash-label">' + escapeHtml(entry.label || entry.value) + '</span><span class="slash-detail">' + escapeHtml(entry.detail || '') + '</span></span>' +
-          '<span class="slash-type">' + escapeHtml(entry.type) + '</span>' +
+          '<span class="slash-text"><span class="slash-label">' + escapeHtml(entry.label || entry.value) + '</span><span class="slash-detail">' + escapeHtml(entry.detail || '') + '</span></span>' +
+          '<span class="slash-type">' + (entry.type === 'skill' ? '技能' : '插件') + '</span>' +
         '</button>';
       }).join('');
+      slashPalette.querySelector('.slash-item.active')?.scrollIntoView({ block: 'nearest' });
     }
 
     function hideSlashPalette() {
