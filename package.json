@@ -18,6 +18,7 @@
   },
   "files": [
     ".codex-plugin/",
+    ".codex/",
     "AGENTS.catchtail.md",
     "README.md",
     "bin/",

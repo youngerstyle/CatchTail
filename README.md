@@ -10,7 +10,7 @@ alive until you explicitly stop it.
 ## Quickstart
 
 1. Open the target project or folder in Codex.
-2. Ask Codex to install and initialize CatchTail from this GitHub repository:
+2. Tell Codex:
 
    ```text
    安装并初始化 https://github.com/youngerstyle/CatchTail
@@ -40,11 +40,11 @@ console while Codex keeps working.
 CatchTail treats the Codex agent loop as a black box and adds an interaction
 surface around it.
 
-The plugin includes an init skill. When you ask Codex to initialize CatchTail,
-the plugin runs its installer in the current project. The installer writes the
-project hook config, a project-local runtime skill, and a managed `AGENTS.md`
-block. Then it starts the local console from the target project so runtime state
-is written beside that project.
+Installation is a one-time project setup step, not a CatchTail runtime skill.
+When you ask Codex to install and initialize the GitHub repository, it fetches
+this project, runs `scripts/install.mjs` against the current target project, and
+starts the local console. The installer writes the project hook config, a
+project-local runtime skill, and a managed `AGENTS.md` block.
 
 The core loop is:
 
@@ -59,14 +59,15 @@ Codex in the loop instead of treating the turn as done.
 
 ### Codex App / Codex CLI
 
-Open the target project or folder in Codex, then ask Codex:
+Open the target project or folder in Codex, then tell Codex:
 
 ```text
 安装并初始化 https://github.com/youngerstyle/CatchTail
 ```
 
-This tells Codex both where CatchTail is and which project should receive the
-CatchTail hook/runtime setup.
+This tells Codex both where CatchTail is and which open project should receive
+the CatchTail hook/runtime setup. No CatchTail skill is required before this
+step; installation is the precondition for the runtime workflow.
 
 The installer will set up the project hooks and start the local console. If Codex
 prompts you to trust hooks, approve it after reviewing the command. CatchTail
@@ -99,7 +100,6 @@ node C:\path\to\CatchTail\bin\catchtail.js serve
 ```text
 .codex-plugin/plugin.json        Plugin manifest
 hooks.json                       Hook declaration
-skills/catchtail-init/           Plugin initialization skill
 skills/catchtail-interactive/    Runtime workflow skill
 scripts/install.mjs              Project installer
 scripts/uninstall.mjs            Managed-block cleanup helper
