@@ -4,6 +4,11 @@
   "type": "module",
   "description": "A lightweight Codex hook sidecar for long-running interactive sessions.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/youngerstyle/CatchTail.git",
+    "directory": "plugins/catchtail"
+  },
   "bin": {
     "catchtail": "./bin/catchtail.js"
   },

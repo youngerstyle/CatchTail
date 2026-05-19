@@ -1,5 +1,9 @@
 # CatchTail Plugin
 
+This directory is the marketplace-style mirror of the root CatchTail plugin.
+The repository root is also a complete plugin project with its own
+`.codex-plugin/plugin.json`.
+
 CatchTail is a Codex hook sidecar for long-running interactive sessions. It uses
 only `UserPromptSubmit` and `Stop`, plus a local queue and session history.
 The included web console supports rich text drafts, uploaded attachments, image

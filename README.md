@@ -1,5 +1,9 @@
 # CatchTail
 
+CatchTail is a Codex plugin project. The repository root is installable as a
+single plugin, and the same plugin is also mirrored under `plugins/catchtail/`
+for repo-local marketplace testing.
+
 CatchTail is a lightweight local interaction sidecar for long-running Codex
 sessions. It does not patch Codex internals. It uses Codex hooks plus a small
 local console so you can continue sending messages, task input, files, and a
@@ -14,6 +18,30 @@ The core model is deliberately small:
 
 The implementation is Node.js-only and uses no third-party packages.
 
+## Plugin Layout
+
+The root directory is the canonical plugin:
+
+```text
+.codex-plugin/plugin.json        Codex plugin manifest
+hooks.json                       Plugin hook declaration
+skills/catchtail-interactive/    Skill bundled with the plugin
+bin/                             CLI entrypoint
+src/                             Runtime, hook, CLI, and console implementation
+```
+
+For local marketplace development, the same plugin is mirrored at:
+
+```text
+plugins/catchtail/
+.agents/plugins/marketplace.json
+```
+
+This makes the repository understandable in both common shapes:
+
+- Single-plugin repo: install the repository root directly.
+- Marketplace-style repo: load `plugins/catchtail` through the marketplace file.
+
 ## What It Builds
 
 - A Codex hook adapter for `UserPromptSubmit` and `Stop`.
@@ -26,9 +54,27 @@ The implementation is Node.js-only and uses no third-party packages.
 
 ## Quick Start
 
+### Install From A Plugin Checkout
+
+Clone or install this repository as a Codex plugin, then run the project
+installer in the target project:
+
+```powershell
+node .\scripts\install.mjs <target-project>
+```
+
+For local development in this repository, run:
+
 ```powershell
 node .\bin\catchtail.js init
 node .\bin\catchtail.js serve
+```
+
+For the mirrored marketplace plugin shape, run from the target project root:
+
+```powershell
+node .\plugins\catchtail\scripts\install.mjs
+node .\plugins\catchtail\bin\catchtail.js serve
 ```
 
 Open the printed local URL, then start Codex in this project and say:
