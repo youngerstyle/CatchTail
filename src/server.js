@@ -698,7 +698,8 @@ function renderConsole() {
       gap: 8px;
       flex-wrap: wrap;
       align-items: center;
-      padding: 12px 14px 0;
+      padding: 0;
+      flex: 0 1 auto;
     }
     .reference-line.has-items { display: flex; }
     .slash-palette {
@@ -973,14 +974,23 @@ function renderConsole() {
       box-shadow: 0 24px 70px rgba(0, 0, 0, .35);
       background: #fff;
     }
+    .input-flow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 16px 18px 8px;
+    }
     textarea {
-      width: 100%;
+      width: auto;
+      min-width: 180px;
+      flex: 1 1 260px;
       min-height: 74px;
       max-height: 240px;
       border: 0;
       outline: 0;
       resize: none;
-      padding: 16px 18px 8px;
+      padding: 0;
       color: var(--text);
       font: inherit;
       line-height: 1.55;
@@ -1086,8 +1096,10 @@ function renderConsole() {
       <div class="composer" id="composer">
         <div class="attachments" id="attachments"></div>
         <div class="slash-palette" id="slashPalette" hidden></div>
-        <div class="reference-line" id="referenceLine"></div>
-        <textarea id="message" placeholder="发消息、追加任务，或拖入文件" spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off"></textarea>
+        <div class="input-flow">
+          <div class="reference-line" id="referenceLine"></div>
+          <textarea id="message" placeholder="发消息、追加任务，或拖入文件" spellcheck="false" autocorrect="off" autocapitalize="off" autocomplete="off"></textarea>
+        </div>
         <div class="toolbar">
           <div class="tools">
             <button class="icon-btn" id="fileButton" title="添加文件" aria-label="添加文件">
