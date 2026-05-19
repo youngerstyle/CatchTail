@@ -9,36 +9,39 @@ alive until you explicitly stop it.
 
 ## Quickstart
 
-Give Codex a tail:
+1. Install CatchTail from your Codex plugin marketplace.
+2. Open the target project in Codex.
+3. Ask Codex:
 
-```powershell
-git clone https://github.com/youngerstyle/CatchTail.git
-cd C:\path\to\your-project
-node C:\path\to\CatchTail\scripts\install.mjs .
-node C:\path\to\CatchTail\bin\catchtail.js serve
-```
+   ```text
+   Initialize CatchTail in this project.
+   ```
 
-Open the console:
+4. Open the local console:
 
-```text
-http://127.0.0.1:3787
-```
+   ```text
+   http://127.0.0.1:3787
+   ```
 
-Start Codex in your project, trust the hooks if prompted, then say:
+5. Start the workflow:
 
-```text
-启动交互式工作流
-```
+   ```text
+   启动交互式工作流
+   ```
+
+After that, send follow-up messages, files, or stop requests through the local
+console while Codex keeps working.
 
 ## How It Works
 
 CatchTail treats the Codex agent loop as a black box and adds an interaction
 surface around it.
 
-When you start the workflow, CatchTail enables a session-scoped queue. While
-Codex is working, you can use the local console to send feedback, upload files,
-preview images, cancel queued messages, or stop the queue. The agent claims one
-message at a time, handles it, marks it complete, and waits for the next one.
+The plugin includes an init skill. When you ask Codex to initialize CatchTail,
+the plugin runs its installer in the current project. The installer writes the
+project hook config, a project-local runtime skill, and a managed `AGENTS.md`
+block. Then it starts the local console from the target project so runtime state
+is written beside that project.
 
 The core loop is:
 
@@ -53,8 +56,19 @@ Codex in the loop instead of treating the turn as done.
 
 ### Codex App / Codex CLI
 
-Until CatchTail is listed in a public plugin marketplace, install it from this
-repository:
+Use the plugin UI or marketplace flow for your Codex environment. Once the
+plugin is installed, initialize it from inside the target project:
+
+```text
+Initialize CatchTail in this project.
+```
+
+The plugin will run the project installer and start the local console.
+
+### Manual Development Install
+
+Use this only when developing CatchTail itself or testing before marketplace
+publication:
 
 ```powershell
 git clone https://github.com/youngerstyle/CatchTail.git
@@ -63,37 +77,22 @@ node C:\path\to\CatchTail\scripts\install.mjs .
 node C:\path\to\CatchTail\bin\catchtail.js serve
 ```
 
-The installer writes:
-
-```text
-.codex/hooks.json
-.agents/skills/catchtail-interactive/SKILL.md
-AGENTS.catchtail.md
-AGENTS.md managed block
-```
-
-If CatchTail is installed under `node_modules/catchtail`, run from the target
-project root:
-
-```powershell
-node .\node_modules\catchtail\scripts\install.mjs .
-node .\node_modules\catchtail\bin\catchtail.js serve
-```
-
 ## The Basic Workflow
 
-1. Start CatchTail's console with `serve`.
-2. Tell Codex `启动交互式工作流`.
-3. Send follow-up messages or attachments in the console.
-4. Codex claims queued input, handles it, completes it, and waits again.
-5. Click the stop control in the console when you want the workflow to end.
+1. Install the plugin.
+2. Ask Codex to initialize CatchTail in the current project.
+3. Tell Codex `启动交互式工作流`.
+4. Use the console to send follow-up messages or attachments.
+5. Codex claims queued input, handles it, completes it, and waits again.
+6. Stop the queue from the console when you want the workflow to end.
 
 ## What's Inside
 
 ```text
 .codex-plugin/plugin.json        Plugin manifest
 hooks.json                       Hook declaration
-skills/catchtail-interactive/    Codex skill instructions
+skills/catchtail-init/           Plugin initialization skill
+skills/catchtail-interactive/    Runtime workflow skill
 scripts/install.mjs              Project installer
 scripts/uninstall.mjs            Managed-block cleanup helper
 bin/catchtail.js                 CLI entrypoint
@@ -128,8 +127,8 @@ file-open endpoints stay local to the sidecar and only accept paths inside
 
 ## Updating
 
-Pull the latest plugin code, then rerun the installer in any target project
-where you want the managed hook and skill files refreshed:
+Update CatchTail through your plugin marketplace. For manual development
+installs, pull the latest plugin code and rerun the installer:
 
 ```powershell
 cd C:\path\to\CatchTail

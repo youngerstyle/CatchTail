@@ -34,9 +34,9 @@
     "privacyPolicyURL": "https://github.com/youngerstyle/CatchTail",
     "termsOfServiceURL": "https://github.com/youngerstyle/CatchTail",
     "defaultPrompt": [
+      "Initialize CatchTail in this project.",
       "启动交互式工作流",
-      "Open CatchTail and keep this session waiting.",
-      "Package this project with CatchTail hooks."
+      "Open CatchTail and keep this session waiting."
     ],
     "brandColor": "#2563EB"
   }
