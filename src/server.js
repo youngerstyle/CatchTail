@@ -1282,9 +1282,9 @@ function renderConsole() {
         .filter(entry => !type || entry.type === type)
         .filter(entry => [entry.label, entry.value, entry.detail].join(' ').toLowerCase().includes(query));
       if (query || type) return matches.slice(0, 24);
-      const skills = matches.filter(entry => entry.type === 'skill').slice(0, 14);
       const plugins = matches.filter(entry => entry.type === 'plugin').slice(0, 8);
-      return [...skills, ...plugins];
+      const skills = matches.filter(entry => entry.type === 'skill').slice(0, 14);
+      return [...plugins, ...skills];
     }
 
     function renderSlashPalette() {
