@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"./hooks/catchtail-hook.js\"",
+            "command": "node \"./plugins/catchtail/hooks/catchtail-hook.js\"",
             "timeout": 600
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"./hooks/catchtail-hook.js\"",
+            "command": "node \"./plugins/catchtail/hooks/catchtail-hook.js\"",
             "timeout": 600
           }
         ]

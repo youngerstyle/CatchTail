@@ -1,6 +1,0 @@
-.catchtail/
-.codex/
-.agents/skills/
-node_modules/
-npm-debug.log*
-*.tgz

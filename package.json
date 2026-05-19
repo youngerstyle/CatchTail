@@ -4,11 +4,15 @@
   "type": "module",
   "description": "A lightweight Codex hook sidecar for long-running interactive sessions.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/youngerstyle/CatchTail.git",
+    "directory": "plugins/catchtail"
+  },
   "bin": {
     "catchtail": "./bin/catchtail.js"
   },
   "scripts": {
-    "test": "node --test",
     "start": "node ./bin/catchtail.js serve",
     "install:project": "node ./scripts/install.mjs",
     "uninstall:project": "node ./scripts/uninstall.mjs"
@@ -28,9 +32,5 @@
   ],
   "engines": {
     "node": ">=20"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/youngerstyle/CatchTail.git"
   }
 }
