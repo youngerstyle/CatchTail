@@ -19,15 +19,19 @@
   "files": [
     ".codex-plugin/",
     "AGENTS.catchtail.md",
+    "assets/",
     "README.md",
     "bin/",
     "docs/",
     "hooks/",
     "hooks.json",
+    "LICENSE",
+    "PRIVACY.md",
     "scripts/",
     "skills/",
     "src/",
-    "templates/"
+    "templates/",
+    "TERMS.md"
   ],
   "engines": {
     "node": ">=20"

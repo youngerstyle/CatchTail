@@ -31,12 +31,15 @@
       "Local"
     ],
     "websiteURL": "https://github.com/youngerstyle/CatchTail",
-    "privacyPolicyURL": "https://github.com/youngerstyle/CatchTail",
-    "termsOfServiceURL": "https://github.com/youngerstyle/CatchTail",
+    "privacyPolicyURL": "https://github.com/youngerstyle/CatchTail/blob/main/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/youngerstyle/CatchTail/blob/main/TERMS.md",
     "defaultPrompt": [
       "启动交互式工作流",
       "Open CatchTail and keep this session waiting."
     ],
-    "brandColor": "#2563EB"
+    "brandColor": "#2563EB",
+    "composerIcon": "./assets/catchtail-small.svg",
+    "logo": "./assets/catchtail-app.svg",
+    "screenshots": []
   }
 }
