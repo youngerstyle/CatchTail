@@ -1,0 +1,4 @@
+.catchtail/
+node_modules/
+npm-debug.log*
+*.tgz
