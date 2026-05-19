@@ -2,7 +2,7 @@ import { createServer as createHttpServer } from "node:http";
 import { createReadStream, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { homedir } from "node:os";
-import { basename, extname, join, relative, resolve } from "node:path";
+import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { CatchTailRuntime } from "./core.js";
 
@@ -303,11 +303,15 @@ function discoverSkills(dir, depth = 0) {
 
 function readSkillRef(path, fallbackName) {
   const text = readFileSync(path, "utf8");
+  const metadataPath = join(dirname(path), "agents", "openai.yaml");
+  const metadata = existsSync(metadataPath) ? readFileSync(metadataPath, "utf8") : "";
+  const name = frontMatterValue(text, "name") || fallbackName;
+  const description = frontMatterValue(text, "description");
   return {
     type: "skill",
-    value: frontMatterValue(text, "name") || fallbackName,
-    label: frontMatterValue(text, "name") || fallbackName,
-    detail: frontMatterValue(text, "description")
+    value: name,
+    label: yamlValue(metadata, "display_name") || formatDisplayName(name),
+    detail: yamlValue(metadata, "short_description") || description
   };
 }
 
@@ -381,6 +385,14 @@ function frontMatterValue(text, key) {
   return "";
 }
 
+function yamlValue(text, key) {
+  for (const line of text.split(/\r?\n/)) {
+    const match = line.match(new RegExp(`^\\s*${key}:\\s*(.*)$`));
+    if (match) return stripOptionalQuotes(match[1].trim());
+  }
+  return "";
+}
+
 function stripOptionalQuotes(value) {
   if (value.length >= 2) {
     const first = value[0];
@@ -390,6 +402,14 @@ function stripOptionalQuotes(value) {
     }
   }
   return value;
+}
+
+function formatDisplayName(value) {
+  return String(value)
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 function safeReaddir(dir) {
@@ -827,9 +847,31 @@ function renderConsole() {
       white-space: nowrap;
     }
     .reference-chip .attachment-icon {
+      width: 18px;
+      height: 18px;
+      border: 0;
+      border-radius: 0;
       color: var(--blue);
-      border-color: #bfdbfe;
-      background: #eff6ff;
+      background: transparent;
+    }
+    .reference-chip {
+      max-width: min(420px, 100%);
+      min-height: 32px;
+      gap: 7px;
+      border-color: #dbeafe;
+      border-radius: 9px;
+      padding: 6px 30px 6px 9px;
+      background: #f8fbff;
+    }
+    .reference-chip .attachment-name {
+      color: #1d4ed8;
+      font-weight: 650;
+    }
+    .reference-kind {
+      flex: 0 0 auto;
+      color: var(--muted);
+      font-size: 11px;
+      margin-left: 2px;
     }
     .attachment-remove {
       position: absolute;
@@ -1122,15 +1164,35 @@ function renderConsole() {
     }
 
     function renderReference(ref, index) {
-      const label = ref.type + ': ' + ref.value;
-      const title = escapeHtml(label);
+      const meta = referenceMeta(ref);
+      const title = escapeHtml(meta.title);
+      const kind = escapeHtml(ref.type === 'plugin' ? '插件' : '技能');
       return '<div class="attachment-file reference-chip" title="' + title + '">' +
-        '<span class="attachment-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M7 8h10M7 12h6m-6 4h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5z" stroke="currentColor" stroke-width="1.6"/></svg></span>' +
-        '<span class="attachment-name">' + title + '</span>' +
-        '<button class="attachment-remove" type="button" onclick="event.stopPropagation(); removeRef(' + index + ')" aria-label="移除引用">' +
+        '<span class="attachment-icon" aria-hidden="true">' + referenceIcon(ref.type) + '</span>' +
+        '<span class="attachment-name">' + escapeHtml(meta.label) + '</span>' +
+        '<span class="reference-kind">' + kind + '</span>' +
+        '<button class="attachment-remove" type="button" onclick="event.stopPropagation(); removeRef(' + index + ')" aria-label="移除上下文">' +
           '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>' +
         '</button>' +
       '</div>';
+    }
+
+    function referenceMeta(ref) {
+      const entry = slash.entries.find(item => item.type === ref.type && item.value === ref.value);
+      const label = ref.label || entry?.label || formatReferenceLabel(ref.value);
+      const detail = ref.detail || entry?.detail || '';
+      return { label, detail, title: detail ? label + ' - ' + detail : label };
+    }
+
+    function formatReferenceLabel(value) {
+      return String(value).split(/[-_:]+/).filter(Boolean).map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+    }
+
+    function referenceIcon(type) {
+      if (type === 'plugin') {
+        return '<svg viewBox="0 0 24 24" fill="none"><path d="M9 3h4.2a2.3 2.3 0 0 1 2.3 2.3v1.2h1.2A2.3 2.3 0 0 1 19 8.8V13h-2.2a1.8 1.8 0 1 0 0 3.6H19v2.1a2.3 2.3 0 0 1-2.3 2.3H12v-2.2a1.8 1.8 0 1 0-3.6 0V21H5.3A2.3 2.3 0 0 1 3 18.7V15h2.2a1.8 1.8 0 1 0 0-3.6H3V8.8a2.3 2.3 0 0 1 2.3-2.3H7V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>';
+      }
+      return '<svg viewBox="0 0 24 24" fill="none"><path d="M7 8h10M7 12h6m-6 4h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5z" stroke="currentColor" stroke-width="1.6"/></svg>';
     }
 
     function renderAttachment(file, index) {
@@ -1351,7 +1413,7 @@ function renderConsole() {
     function selectSlashEntry(index = slash.active) {
       const entry = slash.visible[index];
       if (!entry) return;
-      state.refs.push({ type: entry.type, value: entry.value });
+      state.refs.push({ type: entry.type, value: entry.value, label: entry.label, detail: entry.detail });
       if (!slash.forced) {
         const cursor = message.selectionStart ?? message.value.length;
         const before = message.value.slice(0, cursor).replace(/(?:^|\\s)\\/([^\\s/]*)$/, (match) => match.startsWith(' ') ? ' ' : '');
@@ -1472,7 +1534,7 @@ function renderConsole() {
           : [];
         state.refs = Array.isArray(draft.refs)
           ? draft.refs
-              .map(ref => ({ type: ref.type || 'path', value: ref.value || '' }))
+              .map(ref => ({ type: ref.type || 'path', value: ref.value || '', label: ref.label || '', detail: ref.detail || '' }))
               .filter(ref => ref.value)
           : [];
         renderAttachments();
