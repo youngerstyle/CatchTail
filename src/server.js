@@ -856,26 +856,26 @@ function renderConsole() {
       white-space: nowrap;
     }
     .reference-token {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
       max-width: min(460px, 100%);
-      min-height: 20px;
-      padding: 0 2px;
+      padding: 0 1px;
       border-radius: 4px;
       color: #1d4ed8;
       background: transparent;
       font-size: 13px;
+      font-weight: 650;
       line-height: inherit;
       vertical-align: baseline;
     }
     .reference-token:hover { background: #eff6ff; }
     .reference-token-icon {
-      display: grid;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       place-items: center;
-      width: 15px;
-      height: 15px;
-      flex: 0 0 auto;
+      width: 1em;
+      height: 1em;
+      margin-right: 3px;
+      vertical-align: -0.12em;
     }
     .reference-token-icon svg,
     .slash-icon svg {
@@ -884,11 +884,7 @@ function renderConsole() {
       display: block;
     }
     .reference-token-name {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-weight: 650;
+      vertical-align: baseline;
     }
     .attachment-remove {
       position: absolute;
