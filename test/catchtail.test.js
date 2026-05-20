@@ -202,6 +202,8 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
     assert.match(script, /saveQueueEdit/);
     assert.match(script, /\/api\/queue\/update/);
     assert.match(script, /\/api\/queue\/editing/);
+    assert.match(script, /editablePlainText/);
+    assert.match(script, /tag === 'BR'/);
     assert.match(script, /syncQueueExpandButtons/);
     assert.doesNotThrow(() => new vm.Script(script));
 

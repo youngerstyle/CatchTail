@@ -2050,7 +2050,7 @@ function renderConsole() {
     function editorText() {
       const clone = message.cloneNode(true);
       clone.querySelectorAll('.reference-token').forEach(node => node.remove());
-      return clone.textContent || '';
+      return editablePlainText(clone);
     }
 
     function editorPromptText() {
@@ -2066,7 +2066,30 @@ function renderConsole() {
         };
         node.replaceWith(document.createTextNode(referenceMentionText(ref)));
       });
-      return (clone.textContent || '').replace(/\u00a0/g, ' ');
+      return editablePlainText(clone);
+    }
+
+    function editablePlainText(root) {
+      const newline = String.fromCharCode(10);
+      let text = '';
+      const visit = (node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          text += node.nodeValue || '';
+          return;
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+        const tag = node.tagName;
+        if (tag === 'BR') {
+          text += newline;
+          return;
+        }
+        const startsBlock = ['DIV', 'P', 'LI'].includes(tag);
+        const before = text.length;
+        node.childNodes.forEach(visit);
+        if (startsBlock && text.length > before && !text.endsWith(newline)) text += newline;
+      };
+      visit(root);
+      return text.replaceAll(String.fromCharCode(160), ' ').replace(new RegExp(newline + '+$'), '');
     }
 
     function currentEditorRefs() {
