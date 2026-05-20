@@ -149,6 +149,18 @@ git pull
 node .\scripts\install.mjs C:\path\to\your-project
 ```
 
+For users already on `0.1.16`, update to `0.1.17` or newer and restart the
+console from the target project:
+
+```powershell
+cd C:\path\to\your-project
+node $env:USERPROFILE\.codex\catchtail\bin\catchtail.js serve
+```
+
+Starting `serve` refreshes the managed CatchTail block in `AGENTS.md`, the
+project skill, and the hook config, so existing projects pick up protocol fixes
+without manual file edits.
+
 ## Verification
 
 Before publishing or changing the hook/runtime protocol, run:
