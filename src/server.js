@@ -25,11 +25,12 @@ export function createServer({ root = process.cwd(), openFile = openPathWithDefa
       if (request.method === "POST" && url.pathname === "/api/queue") {
         const runtime = queueRuntimeFor(root, url);
         const body = await readJson(request);
+        const refs = enrichRefs(root, normalizeRefs(body.refs));
         const id = runtime.enqueueMessage({
-          body: String(body.body ?? ""),
+          body: bodyWithMentions(String(body.body ?? ""), refs),
           kind: body.kind ?? "message",
           files: Array.isArray(body.files) ? body.files : [],
-          refs: normalizeRefs(body.refs)
+          refs
         });
         notifyWaiters(waiters, { ok: true, reason: "message", id, sessionId: runtime.sessionId });
         return sendJson(response, { ok: true, id, sessionId: runtime.sessionId }, { cors: true });
@@ -98,11 +99,12 @@ export function createServer({ root = process.cwd(), openFile = openPathWithDefa
       }
       if (request.method === "POST" && url.pathname === "/api/messages") {
         const body = await readJson(request);
+        const refs = enrichRefs(root, normalizeRefs(body.refs));
         const id = runtime.enqueueMessage({
-          body: String(body.body ?? ""),
+          body: bodyWithMentions(String(body.body ?? ""), refs),
           kind: body.kind ?? "message",
           files: Array.isArray(body.files) ? body.files : [],
-          refs: normalizeRefs(body.refs)
+          refs
         });
         notifyWaiters(waiters, { ok: true, reason: "message", id, sessionId: runtime.sessionId });
         return sendJson(response, { ok: true, id, sessionId: runtime.sessionId });
@@ -270,15 +272,55 @@ function normalizeRefs(value) {
   return value
     .map((ref) => ({
       type: String(ref?.type ?? "path").trim().toLowerCase(),
-      value: String(ref?.value ?? "").trim()
+      value: String(ref?.value ?? "").trim(),
+      label: String(ref?.label ?? "").trim(),
+      source: String(ref?.source ?? "").trim()
     }))
     .filter((ref) => ref.value && ["skill", "plugin", "path"].includes(ref.type))
+    .map((ref) => ({
+      type: ref.type,
+      value: ref.value,
+      ...(ref.label ? { label: ref.label } : {}),
+      ...(ref.source ? { source: ref.source } : {})
+    }))
     .filter((ref) => {
       const key = `${ref.type}:${ref.value}`.toLowerCase();
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
+}
+
+function refMentionText(ref) {
+  if (ref.type === "skill" || ref.type === "plugin") {
+    const label = ref.type === "plugin" ? ref.label || ref.value : ref.value;
+    const target = ref.source || ref.value;
+    return `[$${label}](${target})`;
+  }
+  return ref.value;
+}
+
+function bodyWithMentions(body, refs) {
+  const missing = refs
+    .map(refMentionText)
+    .filter((mention) => mention && !body.includes(mention));
+  if (!missing.length) return body;
+  return `${missing.join(" ")} ${body}`.trim();
+}
+
+function enrichRefs(root, refs) {
+  if (!refs.length) return refs;
+  const discovered = discoverRefs(root);
+  const available = [...discovered.skills, ...discovered.plugins];
+  return refs.map((ref) => {
+    const match = available.find((entry) => entry.type === ref.type && entry.value === ref.value);
+    if (!match) return ref;
+    return {
+      ...ref,
+      label: ref.label || match.label,
+      source: ref.source || match.source
+    };
+  });
 }
 
 function discoverRefs(root) {
@@ -1040,6 +1082,49 @@ function renderConsole() {
       pointer-events: none;
     }
     .drop-hint.show { display: flex; }
+    .context-menu {
+      position: fixed;
+      z-index: 30;
+      width: 190px;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, .98);
+      box-shadow: 0 18px 48px rgba(15, 23, 42, .18), 0 2px 8px rgba(15, 23, 42, .08);
+      color: var(--text);
+    }
+    .context-menu[hidden] { display: none; }
+    .context-menu button {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 18px 1fr auto;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 9px;
+      border-radius: 8px;
+      color: inherit;
+      font-size: 13px;
+      text-align: left;
+    }
+    .context-menu button:hover,
+    .context-menu button:focus-visible {
+      background: var(--soft);
+      outline: none;
+    }
+    .context-menu button:disabled {
+      color: #cbd5e1;
+      cursor: default;
+    }
+    .context-menu button:disabled:hover { background: transparent; }
+    .context-menu svg {
+      width: 16px;
+      height: 16px;
+      color: #64748b;
+    }
+    .context-shortcut {
+      color: #94a3b8;
+      font-size: 12px;
+    }
     input[type="file"] { display: none; }
     @media (max-width: 720px) {
       header { padding: 0 14px; }
@@ -1127,6 +1212,35 @@ function renderConsole() {
     </div>
   </div>
   <div class="drop-hint" id="dropHint">松开以上传文件</div>
+  <div class="context-menu" id="contextMenu" role="menu" aria-label="输入菜单" hidden>
+    <button type="button" data-action="cut" role="menuitem">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 6l16 12M4 18 20 6M5 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm0 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <span>剪切</span><span class="context-shortcut">Ctrl+X</span>
+    </button>
+    <button type="button" data-action="copy" role="menuitem">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="8" y="8" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M5 15V7a2 2 0 0 1 2-2h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <span>复制</span><span class="context-shortcut">Ctrl+C</span>
+    </button>
+    <button type="button" data-action="paste" role="menuitem">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M9 5h6l1 2h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2l1-2Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+        <path d="M9 11h6M9 15h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <span>粘贴</span><span class="context-shortcut">Ctrl+V</span>
+    </button>
+    <button type="button" data-action="selectAll" role="menuitem">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="5" y="5" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.8" stroke-dasharray="3 3"/>
+        <path d="M9 12h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <span>全选</span><span class="context-shortcut">Ctrl+A</span>
+    </button>
+  </div>
   <script>
     const state = { files: [], refs: [], sessionId: 'default', draftLoaded: false };
     const slash = { entries: [], visible: [], active: 0, forced: false, filterType: null };
@@ -1135,6 +1249,7 @@ function renderConsole() {
     const attachments = document.getElementById('attachments');
     const sendButton = document.getElementById('sendButton');
     const slashPalette = document.getElementById('slashPalette');
+    const contextMenu = document.getElementById('contextMenu');
     const skillButton = document.getElementById('skillButton');
     const pluginButton = document.getElementById('pluginButton');
     const dropHint = document.getElementById('dropHint');
@@ -1173,14 +1288,44 @@ function renderConsole() {
       if (item.files?.length) parts.push(item.files.length + ' 个附件');
       if (item.refs?.length) parts.push(item.refs.length + ' 个上下文提示');
       const attachmentText = parts.length ? parts.join(' · ') : '无附件';
+      const body = item.body || '(空消息)';
+      const bodyAlreadyMentionsRefs = (item.refs || []).some(ref => body.includes(referenceMentionText(ref)) || body.includes(ref.value));
+      const refs = bodyAlreadyMentionsRefs ? '' : (item.refs || [])
+        .map((ref, index) => renderReference({ id: 'queue-' + item.id + '-' + index, ...ref }))
+        .join('');
+      const title = (item.refs || []).map(ref => '[' + ref.type + ':' + ref.value + ']').join(' ') + (item.refs?.length ? ' ' : '') + body;
       return '<div class="queue-item">' +
         '<div class="queue-kind">' + escapeHtml(item.kind) + '</div>' +
-        '<div class="queue-body" title="' + escapeHtml(item.body) + '">' + escapeHtml(item.body || '(空消息)') + '</div>' +
+        '<div class="queue-body" title="' + escapeHtml(title) + '">' + refs + (refs ? ' ' : '') + renderQueueBody(body, item.refs || [], item.id) + '</div>' +
         '<div class="queue-meta"><span>' + attachmentText + '</span><span class="dot"></span>' +
           '<button class="queue-cancel" type="button" title="取消队列项" aria-label="取消队列项" onclick="cancelQueueItem(&quot;' + escapeHtml(item.id) + '&quot;)">' +
             '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>' +
           '</button></div>' +
       '</div>';
+    }
+
+    function renderQueueBody(body, refs, itemId) {
+      if (!refs.length) return escapeHtml(body);
+      const segments = [{ type: 'text', text: body }];
+      refs.forEach((ref, refIndex) => {
+        const mention = referenceMentionText(ref);
+        for (let index = 0; index < segments.length; index += 1) {
+          const segment = segments[index];
+          if (segment.type !== 'text' || !segment.text.includes(mention)) continue;
+          const parts = segment.text.split(mention);
+          const replacement = [];
+          parts.forEach((part, partIndex) => {
+            if (part) replacement.push({ type: 'text', text: part });
+            if (partIndex < parts.length - 1) replacement.push({ type: 'ref', ref, refIndex });
+          });
+          segments.splice(index, 1, ...replacement);
+          index += replacement.length - 1;
+        }
+      });
+      return segments.map((segment, index) => {
+        if (segment.type === 'text') return escapeHtml(segment.text);
+        return renderReference({ id: 'queue-' + itemId + '-' + segment.refIndex + '-' + index, ...segment.ref });
+      }).join('');
     }
 
 
@@ -1193,7 +1338,7 @@ function renderConsole() {
     function renderReference(ref) {
       const meta = referenceMeta(ref);
       const title = escapeHtml(meta.title);
-      return '<span class="reference-token" contenteditable="false" data-ref-id="' + escapeHtml(ref.id) + '" title="' + title + '">' +
+      return '<span class="reference-token" contenteditable="false" data-ref-id="' + escapeHtml(ref.id) + '" data-ref-type="' + escapeHtml(ref.type) + '" data-ref-value="' + escapeHtml(ref.value) + '" data-ref-label="' + escapeHtml(meta.label) + '" data-ref-source="' + escapeHtml(ref.source || '') + '" title="' + title + '">' +
         '<span class="reference-token-icon" aria-hidden="true">' + referenceIcon(ref.type) + '</span>' +
         '<span class="reference-token-name">' + escapeHtml(meta.label) + '</span>' +
       '</span>';
@@ -1204,6 +1349,15 @@ function renderConsole() {
       const label = ref.label || entry?.label || formatReferenceLabel(ref.value);
       const detail = ref.detail || entry?.detail || '';
       return { label, detail, title: detail ? label + ' - ' + detail : label };
+    }
+
+    function referenceMentionText(ref) {
+      if (ref.type === 'skill' || ref.type === 'plugin') {
+        const label = ref.type === 'plugin' ? (ref.label || ref.value) : ref.value;
+        const target = ref.source || ref.value;
+        return '[$' + label + '](' + target + ')';
+      }
+      return ref.value;
     }
 
     function formatReferenceLabel(value) {
@@ -1438,7 +1592,7 @@ function renderConsole() {
     function selectSlashEntry(index = slash.active) {
       const entry = slash.visible[index];
       if (!entry) return;
-      const ref = { id: crypto.randomUUID(), type: entry.type, value: entry.value, label: entry.label, detail: entry.detail };
+      const ref = { id: crypto.randomUUID(), type: entry.type, value: entry.value, label: entry.label, detail: entry.detail, source: entry.source || '' };
       state.refs.push(ref);
       if (!slash.forced) deleteSlashQueryBeforeCursor();
       insertReferenceToken(ref);
@@ -1456,7 +1610,7 @@ function renderConsole() {
     }
 
     async function sendMessage() {
-      const body = editorText().trim();
+      const body = editorPromptText().trim();
       const refs = currentEditorRefs();
       if (!body && !state.files.length && !refs.length) return;
       sendButton.disabled = true;
@@ -1557,7 +1711,7 @@ function renderConsole() {
           : [];
         state.refs = Array.isArray(draft.refs)
           ? draft.refs
-              .map(ref => ({ id: ref.id || crypto.randomUUID(), type: ref.type || 'path', value: ref.value || '', label: ref.label || '', detail: ref.detail || '' }))
+              .map(ref => ({ id: ref.id || crypto.randomUUID(), type: ref.type || 'path', value: ref.value || '', label: ref.label || '', detail: ref.detail || '', source: ref.source || '' }))
               .filter(ref => ref.value)
           : [];
         for (const ref of state.refs) insertReferenceToken(ref, true);
@@ -1578,12 +1732,35 @@ function renderConsole() {
       return clone.textContent || '';
     }
 
+    function editorPromptText() {
+      const clone = message.cloneNode(true);
+      const refs = currentEditorRefs();
+      const byId = new Map(refs.map(ref => [ref.id, ref]));
+      clone.querySelectorAll('.reference-token').forEach(node => {
+        const ref = byId.get(node.dataset.refId) || {
+          type: node.dataset.refType || 'path',
+          value: node.dataset.refValue || '',
+          label: node.dataset.refLabel || '',
+          source: node.dataset.refSource || ''
+        };
+        node.replaceWith(document.createTextNode(referenceMentionText(ref)));
+      });
+      return (clone.textContent || '').replace(/\u00a0/g, ' ');
+    }
+
     function currentEditorRefs() {
       const byId = new Map(state.refs.map(ref => [ref.id, ref]));
       const seen = new Set();
       return Array.from(message.querySelectorAll('.reference-token'))
-        .map(node => byId.get(node.dataset.refId))
-        .filter(Boolean)
+        .map(node => byId.get(node.dataset.refId) || {
+          id: node.dataset.refId || crypto.randomUUID(),
+          type: node.dataset.refType || 'path',
+          value: node.dataset.refValue || '',
+          label: node.dataset.refLabel || node.textContent?.trim() || '',
+          source: node.dataset.refSource || '',
+          detail: ''
+        })
+        .filter(ref => ref.value && ['skill', 'plugin', 'path'].includes(ref.type))
         .filter(ref => {
           const key = ref.type + ':' + ref.value;
           if (seen.has(key)) return false;
@@ -1655,12 +1832,86 @@ function renderConsole() {
       return String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
 
+    function selectionInsideEditor() {
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed || !selection.rangeCount) return false;
+      const range = selection.getRangeAt(0);
+      return message.contains(range.commonAncestorContainer) || message === range.commonAncestorContainer;
+    }
+
+    function showContextMenu(event) {
+      if (!message.contains(event.target) && event.target !== message) return;
+      event.preventDefault();
+      hideSlashPalette();
+      message.focus();
+      const hasSelection = selectionInsideEditor();
+      contextMenu.querySelector('[data-action="cut"]').disabled = !hasSelection;
+      contextMenu.querySelector('[data-action="copy"]').disabled = !hasSelection;
+      contextMenu.hidden = false;
+      const margin = 8;
+      const width = contextMenu.offsetWidth || 190;
+      const height = contextMenu.offsetHeight || 180;
+      const left = Math.min(event.clientX, window.innerWidth - width - margin);
+      const top = Math.min(event.clientY, window.innerHeight - height - margin);
+      contextMenu.style.left = Math.max(margin, left) + 'px';
+      contextMenu.style.top = Math.max(margin, top) + 'px';
+    }
+
+    function hideContextMenu() {
+      contextMenu.hidden = true;
+    }
+
+    function selectEditorContents() {
+      const range = document.createRange();
+      range.selectNodeContents(message);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+
+    async function runContextAction(action) {
+      hideContextMenu();
+      message.focus();
+      if (action === 'selectAll') {
+        selectEditorContents();
+        return;
+      }
+      if (action === 'paste') {
+        try {
+          const text = await navigator.clipboard.readText();
+          if (text) document.execCommand('insertText', false, text);
+        } catch {
+          document.execCommand('paste');
+        }
+      } else {
+        document.execCommand(action);
+      }
+      setTimeout(() => {
+        state.refs = currentEditorRefs();
+        updateSendState();
+        saveDraft();
+      }, 0);
+    }
+
     document.getElementById('fileButton').addEventListener('click', () => {
       hideSlashPalette();
+      hideContextMenu();
       fileInput.click();
     });
     skillButton.addEventListener('click', () => openSlashPalette('skill'));
     pluginButton.addEventListener('click', () => openSlashPalette('plugin'));
+    message.addEventListener('contextmenu', showContextMenu);
+    contextMenu.addEventListener('mousedown', event => event.preventDefault());
+    contextMenu.addEventListener('click', event => {
+      const item = event.target.closest('button[data-action]');
+      if (item && !item.disabled) runContextAction(item.dataset.action);
+    });
+    document.addEventListener('click', event => {
+      if (!contextMenu.contains(event.target)) hideContextMenu();
+    });
+    window.addEventListener('blur', hideContextMenu);
+    window.addEventListener('resize', hideContextMenu);
+    window.addEventListener('scroll', hideContextMenu, true);
     slashPalette.addEventListener('click', event => {
       const item = event.target.closest('.slash-item');
       if (item) selectSlashEntry(Number(item.dataset.index));
@@ -1684,6 +1935,7 @@ function renderConsole() {
     });
     sendButton.addEventListener('click', sendMessage);
     message.addEventListener('input', () => {
+      hideContextMenu();
       state.refs = currentEditorRefs();
       updateSendState();
       saveDraft();

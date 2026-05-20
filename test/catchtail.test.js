@@ -129,6 +129,11 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
     const html = await fetch(base).then((response) => response.text());
     const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
     assert.ok(script);
+    assert.match(html, /data-ref-type/);
+    assert.match(html, /data-ref-value/);
+    assert.match(script, /dataset\.refType/);
+    assert.match(script, /editorPromptText/);
+    assert.match(script, /\[\$'/);
     assert.doesNotThrow(() => new vm.Script(script));
 
     const enqueue = await fetch(`${base}/api/queue?sessionId=session-b`, {
@@ -152,11 +157,13 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
       method: "POST"
     }).then((response) => response.json());
     assert.equal(claim.item.id, enqueue.id);
-    assert.equal(claim.item.body, "hello");
-    assert.deepEqual(claim.item.refs, [
-      { type: "skill", value: "catchtail-interactive" },
-      { type: "plugin", value: "browser" }
-    ]);
+    assert.match(claim.item.body, /^\[\$catchtail-interactive\]\(catchtail-interactive\) \[\$Browser\]\(.+plugin\.json\) hello$/);
+    assert.equal(claim.item.refs[0].type, "skill");
+    assert.equal(claim.item.refs[0].value, "catchtail-interactive");
+    assert.equal(claim.item.refs[1].type, "plugin");
+    assert.equal(claim.item.refs[1].value, "browser");
+    assert.equal(claim.item.refs[1].label, "Browser");
+    assert.match(claim.item.refs[1].source, /plugin\.json$/);
 
     const complete = await fetch(`${base}/api/queue/complete?sessionId=session-b`, {
       method: "POST",

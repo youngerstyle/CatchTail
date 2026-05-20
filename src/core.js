@@ -222,7 +222,7 @@ export function interactiveContext() {
     "CatchTail interactive mode is active.",
     "Runtime is lightweight: queue.json contains only unclaimed user input; session.jsonl contains history.",
     `When prompted by CatchTail, run \`${command} claim\`, handle that message, then run \`${command} complete <id> <short response>\`.`,
-    "After claiming a message, print `**处理队列消息：**`, then print the message body inside a fenced `text` code block, then list attachment paths and context hints.",
+    "After claiming a message, print `**处理队列消息：**`, then print `---`, then print the message body as normal Codex-rendered Markdown, then list attachment paths and context hints, then print a final `---`. Do not wrap the body in fenced code or blockquote syntax.",
     `After complete, run \`${command} wait\` while milestone is incomplete; do not send final.`,
     "While wait is running, do not post heartbeat-style idle updates in chat; stay quiet until a message, stop signal, timeout, or error occurs.",
     "Stop only when milestone is completed."
