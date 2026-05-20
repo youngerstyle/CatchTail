@@ -1450,7 +1450,8 @@ function renderConsole() {
 
     async function sendMessage() {
       const body = editorText().trim();
-      if (!body && !state.files.length && !state.refs.length) return;
+      const refs = currentEditorRefs();
+      if (!body && !state.files.length && !refs.length) return;
       sendButton.disabled = true;
       const uploaded = await uploadFiles();
       await api('/api/messages', {
@@ -1460,7 +1461,7 @@ function renderConsole() {
           kind: 'message',
           body,
           files: uploaded.map(file => file.path),
-          refs: state.refs
+          refs
         })
       });
       message.innerHTML = '';
@@ -1522,7 +1523,7 @@ function renderConsole() {
     function saveDraft() {
       const body = editorText();
       const files = serializableFiles();
-      const refs = state.refs;
+      const refs = currentEditorRefs();
       if (!body && !files.length && !refs.length) {
         clearDraft();
         return;
@@ -1568,6 +1569,20 @@ function renderConsole() {
       const clone = message.cloneNode(true);
       clone.querySelectorAll('.reference-token').forEach(node => node.remove());
       return clone.textContent || '';
+    }
+
+    function currentEditorRefs() {
+      const byId = new Map(state.refs.map(ref => [ref.id, ref]));
+      const seen = new Set();
+      return Array.from(message.querySelectorAll('.reference-token'))
+        .map(node => byId.get(node.dataset.refId))
+        .filter(Boolean)
+        .filter(ref => {
+          const key = ref.type + ':' + ref.value;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
     }
 
     function textBeforeCursor() {
@@ -1626,7 +1641,7 @@ function renderConsole() {
     }
 
     function updateSendState() {
-      sendButton.disabled = !editorText().trim() && state.files.length === 0 && state.refs.length === 0;
+      sendButton.disabled = !editorText().trim() && state.files.length === 0 && currentEditorRefs().length === 0;
     }
 
     function escapeHtml(value) {
@@ -1662,6 +1677,7 @@ function renderConsole() {
     });
     sendButton.addEventListener('click', sendMessage);
     message.addEventListener('input', () => {
+      state.refs = currentEditorRefs();
       updateSendState();
       saveDraft();
       slash.forced = false;
