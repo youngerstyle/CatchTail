@@ -1,6 +1,6 @@
 {
   "name": "catchtail",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "description": "A lightweight Codex hook sidecar for long-running interactive sessions.",
   "author": {
     "name": "CatchTail",
@@ -35,6 +35,7 @@
     "termsOfServiceURL": "https://github.com/youngerstyle/CatchTail/blob/main/TERMS.md",
     "defaultPrompt": [
       "启动交互式工作流",
+      "启动 小尾巴",
       "Open CatchTail and keep this session waiting."
     ],
     "brandColor": "#2563EB",

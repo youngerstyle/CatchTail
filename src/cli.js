@@ -11,14 +11,14 @@ const SKILL_TEMPLATE_PATH = resolve(MODULE_DIR, "..", "templates", "catchtail-sk
 
 export async function runCli(
   argv = process.argv.slice(2),
-  { root = process.cwd(), fetchImpl = fetch } = {}
+  { root = process.cwd(), fetchImpl = fetch, stayOpen = true } = {}
 ) {
   const parsed = parseGlobalArgs(argv);
   const command = parsed.argv[0] ?? "help";
   const sessionId = parsed.sessionId;
 
   if (command === "init") return initProject(resolve(parsed.argv[1] ?? root));
-  if (command === "serve") return serve(root, Number(parsed.argv[1] ?? 3787));
+  if (command === "serve") return serve(root, Number(parsed.argv[1] ?? 3787), { stayOpen });
   if (command === "status") return status(root, sessionId);
   if (command === "wait") {
     return waitForSidecar(root, sessionId, parsed.argv[1], fetchImpl);
@@ -56,6 +56,21 @@ function parseGlobalArgs(argv) {
 }
 
 function initProject(root) {
+  syncProjectInstall(root);
+  return {
+    exitCode: 0,
+    stdout:
+      [
+        "CatchTail initialized.",
+        "Created .codex/hooks.json, .agents/skills/catchtail-interactive/, AGENTS.catchtail.md, and .catchtail/sessions/.",
+        "Updated AGENTS.md with the CatchTail managed block.",
+        "Run: node ./bin/catchtail.js serve"
+      ].join("\n") + "\n",
+    stderr: ""
+  };
+}
+
+export function syncProjectInstall(root) {
   const codexDir = join(root, ".codex");
   const skillDir = join(root, ".agents", "skills", "catchtail-interactive");
   mkdirSync(codexDir, { recursive: true });
@@ -71,18 +86,7 @@ function initProject(root) {
   writeFileSync(join(root, "AGENTS.catchtail.md"), `${protocol}\n`);
   writeFileSync(join(skillDir, "SKILL.md"), `${skillProtocol(cliPath)}\n`);
   patchAgentsFile(join(root, "AGENTS.md"), protocol);
-
-  return {
-    exitCode: 0,
-    stdout:
-      [
-        "CatchTail initialized.",
-        "Created .codex/hooks.json, .agents/skills/catchtail-interactive/, AGENTS.catchtail.md, and .catchtail/sessions/.",
-        "Updated AGENTS.md with the CatchTail managed block.",
-        "Run: node ./bin/catchtail.js serve"
-      ].join("\n") + "\n",
-    stderr: ""
-  };
+  return { cliPath };
 }
 
 function cliPathForProject(root) {
@@ -90,11 +94,21 @@ function cliPathForProject(root) {
   return `./${cliPath.replaceAll("\\", "/")}`;
 }
 
-function serve(root, port) {
+async function serve(root, port, { stayOpen = true } = {}) {
+  syncProjectInstall(root);
   const server = createServer({ root });
-  server.listen(port, "127.0.0.1", () => {
-    process.stdout.write(`CatchTail Console: http://127.0.0.1:${port}\n`);
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, "127.0.0.1", () => {
+      server.off("error", reject);
+      process.stdout.write(`CatchTail Console: http://127.0.0.1:${server.address().port}\n`);
+      resolve();
+    });
   });
+  if (!stayOpen) {
+    await new Promise((resolve) => server.close(resolve));
+    return { exitCode: 0, stdout: "", stderr: "" };
+  }
   return new Promise(() => {});
 }
 

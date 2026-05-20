@@ -90,6 +90,29 @@ test("CLI init accepts an explicit target path and preserves existing hooks", as
   assert.match(skill, /不要用 fenced code block/);
 });
 
+test("CLI serve refreshes stale project protocol files", async () => {
+  const project = tempProject("serve-sync");
+  await mkdir(join(project, ".codex"), { recursive: true });
+  writeFileSync(
+    join(project, "AGENTS.md"),
+    [
+      "<!-- CatchTail:START -->",
+      "# CatchTail Interactive Workflow",
+      "- claim 到消息后，先在当前 Codex 对话里打印 `**处理队列消息：**`，再用 fenced `text` 代码块包裹正文。",
+      "<!-- CatchTail:END -->"
+    ].join("\n")
+  );
+
+  const result = await runCli(["serve", "0"], { root: project, stayOpen: false });
+  assert.equal(result.exitCode, 0, result.stderr);
+
+  const agents = readFileSync(join(project, "AGENTS.md"), "utf8");
+  const skill = readFileSync(join(project, ".agents", "skills", "catchtail-interactive", "SKILL.md"), "utf8");
+  assert.doesNotMatch(agents, /再用 fenced `text` 代码块包裹正文/);
+  assert.match(agents, /不要用 fenced code block/);
+  assert.match(skill, /不要用 fenced code block/);
+});
+
 test("UserPromptSubmit enables interactive mode and returns CatchTail context", async () => {
   const project = tempProject("hook");
   const payload = {
@@ -106,6 +129,25 @@ test("UserPromptSubmit enables interactive mode and returns CatchTail context", 
   assert.match(output.hookSpecificOutput.additionalContext, /claim/);
 
   const state = readJson(join(project, ".catchtail", "sessions", "session-a", "state.json"));
+  assert.equal(state.interactive.enabled, true);
+  assert.equal(state.interactive.milestone, "incomplete");
+});
+
+test("UserPromptSubmit accepts the CatchTail nickname start prompt", async () => {
+  const project = tempProject("hook-alias");
+  const payload = {
+    hook_event_name: "UserPromptSubmit",
+    session_id: "session-alias",
+    turn_id: "turn-alias",
+    prompt: "\u542f\u52a8 \u5c0f\u5c3e\u5df4"
+  };
+
+  const result = await runHook({ root: project, stdin: JSON.stringify(payload) });
+  assert.equal(result.exitCode, 0, result.stderr);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.hookSpecificOutput.hookEventName, "UserPromptSubmit");
+
+  const state = readJson(join(project, ".catchtail", "sessions", "session-alias", "state.json"));
   assert.equal(state.interactive.enabled, true);
   assert.equal(state.interactive.milestone, "incomplete");
 });

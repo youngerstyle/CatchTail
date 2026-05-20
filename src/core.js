@@ -173,12 +173,13 @@ export class CatchTailRuntime {
   }
 
   onUserPromptSubmit(input) {
+    const prompt = String(input.prompt ?? "");
     this.appendHistory({
       type: "prompt.submit",
       turnId: input.turn_id ?? null,
-      prompt: input.prompt ?? ""
+      prompt
     });
-    if (String(input.prompt ?? "").includes("启动交互式工作流")) {
+    if (isInteractiveStartPrompt(prompt)) {
       this.enableInteractive(input.turn_id ?? null);
       return {
         hookSpecificOutput: {
@@ -214,6 +215,12 @@ export class CatchTailRuntime {
       trimmed.map((entry) => JSON.stringify(entry)).join("\n") + (trimmed.length ? "\n" : "")
     );
   }
+}
+
+function isInteractiveStartPrompt(prompt) {
+  const compact = prompt.replace(/\s+/g, "");
+  return compact.includes("\u542f\u52a8\u4ea4\u4e92\u5f0f\u5de5\u4f5c\u6d41")
+    || compact.includes("\u542f\u52a8\u5c0f\u5c3e\u5df4");
 }
 
 export function interactiveContext() {
