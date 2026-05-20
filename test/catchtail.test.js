@@ -187,6 +187,24 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
       body: JSON.stringify({ id: enqueue.id, response: "done" })
     }).then((response) => response.json());
     assert.equal(complete.ok, true);
+
+    const oldMentionEnqueue = await fetch(`${base}/api/queue?sessionId=session-c`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        body: "[$Demo Plugin](demo-plugin) already mentioned",
+        kind: "message",
+        files: [],
+        refs: [{ type: "plugin", value: "demo-plugin" }]
+      })
+    }).then((response) => response.json());
+    assert.equal(oldMentionEnqueue.ok, true);
+
+    const oldMentionClaim = await fetch(`${base}/api/queue/claim?sessionId=session-c`, {
+      method: "POST"
+    }).then((response) => response.json());
+    assert.equal(oldMentionClaim.item.id, oldMentionEnqueue.id);
+    assert.equal(oldMentionClaim.item.body, "[$Demo Plugin](demo-plugin) already mentioned");
   } finally {
     server.close();
     await rm(project, { recursive: true, force: true });

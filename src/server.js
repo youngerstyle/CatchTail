@@ -300,10 +300,19 @@ function refMentionText(ref) {
   return ref.value;
 }
 
+function refMentionVariants(ref) {
+  if (ref.type === "skill" || ref.type === "plugin") {
+    const labels = new Set([ref.type === "plugin" ? ref.label || ref.value : ref.value, ref.value].filter(Boolean));
+    const targets = new Set([ref.source, ref.value].filter(Boolean));
+    return [...labels].flatMap((label) => [...targets].map((target) => `[$${label}](${target})`));
+  }
+  return [ref.value].filter(Boolean);
+}
+
 function bodyWithMentions(body, refs) {
   const missing = refs
     .map(refMentionText)
-    .filter((mention) => mention && !body.includes(mention));
+    .filter((mention, index) => mention && !refMentionVariants(refs[index]).some((variant) => body.includes(variant)));
   if (!missing.length) return body;
   return `${missing.join(" ")} ${body}`.trim();
 }
