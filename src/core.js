@@ -222,7 +222,7 @@ export function interactiveContext() {
     "CatchTail interactive mode is active.",
     "Runtime is lightweight: queue.json contains only unclaimed user input; session.jsonl contains history.",
     `When prompted by CatchTail, run \`${command} claim\`, handle that message, then run \`${command} complete <id> <short response>\`.`,
-    "After claiming a message, print `**处理队列消息：**`, then print the message body inside a fenced `text` code block, then list attachment paths and context refs.",
+    "After claiming a message, print `**处理队列消息：**`, then print the message body inside a fenced `text` code block, then list attachment paths and context hints.",
     `After complete, run \`${command} wait\` while milestone is incomplete; do not send final.`,
     "While wait is running, do not post heartbeat-style idle updates in chat; stay quiet until a message, stop signal, timeout, or error occurs.",
     "Stop only when milestone is completed."
@@ -246,7 +246,7 @@ function buildContinuationPrompt(messages, interactive) {
     for (const message of messages.slice(0, 10)) {
       const files = message.files?.length ? ` Files: ${message.files.join(", ")}` : "";
       const refs = message.refs?.length
-        ? ` Refs: ${message.refs.map((ref) => `${ref.type}:${ref.value}`).join(", ")}`
+        ? ` Hints: ${message.refs.map((ref) => `${ref.type}:${ref.value}`).join(", ")}`
         : "";
       lines.push(`- ${message.kind} ${message.id}: ${message.body}${files}${refs}`);
     }

@@ -1091,13 +1091,13 @@ function renderConsole() {
                 <path d="m21.4 11.6-8.5 8.5a6 6 0 0 1-8.5-8.5l8.5-8.5a4 4 0 0 1 5.7 5.7l-8.6 8.5a2 2 0 1 1-2.8-2.8l8-8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path>
               </svg>
             </button>
-            <button class="icon-btn" id="skillButton" title="技能" aria-label="技能">
+            <button class="icon-btn" id="skillButton" title="添加技能上下文" aria-label="添加技能上下文">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="m12 3 8 4.5-8 4.5-8-4.5L12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path>
                 <path d="m4 12 8 4.5 8-4.5M4 16.5l8 4.5 8-4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
               </svg>
             </button>
-            <button class="icon-btn" id="pluginButton" title="插件" aria-label="插件">
+            <button class="icon-btn" id="pluginButton" title="添加插件上下文" aria-label="添加插件上下文">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M8 3h8v4h2a3 3 0 1 1 0 6h-2v8H8v-4H6a3 3 0 1 1 0-6h2V3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path>
               </svg>
@@ -1171,7 +1171,7 @@ function renderConsole() {
     function renderQueueItem(item) {
       const parts = [];
       if (item.files?.length) parts.push(item.files.length + ' 个附件');
-      if (item.refs?.length) parts.push(item.refs.length + ' 个引用');
+      if (item.refs?.length) parts.push(item.refs.length + ' 个上下文提示');
       const attachmentText = parts.length ? parts.join(' · ') : '无附件';
       return '<div class="queue-item">' +
         '<div class="queue-kind">' + escapeHtml(item.kind) + '</div>' +

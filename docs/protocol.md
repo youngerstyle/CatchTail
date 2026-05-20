@@ -67,8 +67,12 @@ Message kinds:
 
 Each message can include `files`, which are local paths to documents, images, or
 other artifacts the agent may inspect. It can also include `refs`, a lightweight
-list of structured references such as `{ "type": "skill", "value": "..." }`,
+list of context hints such as `{ "type": "skill", "value": "..." }`,
 `{ "type": "plugin", "value": "..." }`, or `{ "type": "path", "value": "..." }`.
+These hints are Codex-style mentions for routing attention only: they are not
+attachments, do not grant permissions, and do not install or activate a skill or
+plugin by themselves. The agent still follows the normal Codex skill/plugin
+loading rules and permission boundaries.
 
 The web console saves uploaded attachments under:
 
