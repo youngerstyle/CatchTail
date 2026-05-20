@@ -1188,7 +1188,7 @@ function renderConsole() {
         '<div class="queue-kind">' + escapeHtml(item.kind) + '</div>' +
         '<div class="queue-body" title="' + escapeHtml(item.body) + '">' + escapeHtml(item.body || '(空消息)') + '</div>' +
         '<div class="queue-meta"><span>' + attachmentText + '</span><span class="dot"></span>' +
-          '<button class="queue-cancel" type="button" title="取消队列项" aria-label="取消队列项" onclick="cancelQueueItem(\\'' + escapeHtml(item.id) + '\\')">' +
+          '<button class="queue-cancel" type="button" title="取消队列项" aria-label="取消队列项" onclick="cancelQueueItem(&quot;' + escapeHtml(item.id) + '&quot;)">' +
             '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>' +
           '</button></div>' +
       '</div>';
@@ -1283,14 +1283,12 @@ function renderConsole() {
 
     window.removeRef = function removeRef(id) {
       state.refs = state.refs.filter(ref => ref.id !== id);
-      message.querySelector('[data-ref-id="' + cssEscape(id) + '"]')?.remove();
+      Array.from(message.querySelectorAll('.reference-token'))
+        .find(node => node.dataset.refId === id)
+        ?.remove();
       renderAttachments();
       saveDraft();
     };
-
-    function cssEscape(value) {
-      return String(value).replace(/["\\]/g, '\\$&');
-    }
 
     window.removeFile = function removeFile(index) {
       const removed = state.files.splice(index, 1);

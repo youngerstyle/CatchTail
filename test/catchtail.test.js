@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import vm from "node:vm";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { runCli } from "../src/cli.js";
@@ -124,6 +125,11 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
       'Demo skill with "quoted" trigger text'
     );
     assert.equal(refs.plugins.some((ref) => ref.value === "demo-plugin"), true);
+
+    const html = await fetch(base).then((response) => response.text());
+    const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+    assert.ok(script);
+    assert.doesNotThrow(() => new vm.Script(script));
 
     const enqueue = await fetch(`${base}/api/queue?sessionId=session-b`, {
       method: "POST",
