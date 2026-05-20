@@ -55,11 +55,14 @@ test("installer preserves existing hooks, replaces stale CatchTail hook, and tol
 
 test("plugin manifest has marketplace-facing assets and policy links", () => {
   const manifest = readJson(join(ROOT, ".codex-plugin", "plugin.json"));
+  const pkg = readJson(join(ROOT, "package.json"));
+  assert.equal(manifest.version, pkg.version);
   assert.equal(manifest.interface.composerIcon, "./assets/catchtail-small.svg");
   assert.equal(manifest.interface.logo, "./assets/catchtail-app.svg");
   assert.deepEqual(manifest.interface.screenshots, []);
   assert.match(manifest.interface.privacyPolicyURL, /PRIVACY\.md$/);
   assert.match(manifest.interface.termsOfServiceURL, /TERMS\.md$/);
+  assert.equal(manifest.interface.defaultPrompt[0], "启动交互式工作流");
 });
 
 test("CLI init accepts an explicit target path and preserves existing hooks", async () => {
@@ -77,6 +80,14 @@ test("CLI init accepts an explicit target path and preserves existing hooks", as
   const serialized = JSON.stringify(hooks);
   assert.match(serialized, /keep-stop\.js/);
   assert.match(serialized, /catchtail-hook\.js/);
+
+  const agents = readFileSync(join(project, "AGENTS.md"), "utf8");
+  const skill = readFileSync(join(project, ".agents", "skills", "catchtail-interactive", "SKILL.md"), "utf8");
+  assert.match(agents, /启动交互式工作流/);
+  assert.match(agents, /不要用 fenced code block/);
+  assert.match(agents, /处理队列消息/);
+  assert.match(skill, /启动交互式工作流/);
+  assert.match(skill, /不要用 fenced code block/);
 });
 
 test("UserPromptSubmit enables interactive mode and returns CatchTail context", async () => {

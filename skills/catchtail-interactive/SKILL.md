@@ -5,29 +5,17 @@ description: 当用户说“启动交互式工作流”，或要求 Codex 通过
 
 # CatchTail 交互式工作流
 
-Use this skill when CatchTail interactive mode is already initialized in the
-current project.
+当 CatchTail interactive mode 已启动时使用此 skill。
 
-If the current project has not been initialized yet, ask the user to complete
-the installation step first. Installation is a precondition, not a runtime
-CatchTail skill.
-
-Protocol:
-
-- Runtime state is scoped by Codex `session_id`.
-- `queue.json` contains only unclaimed user input.
-- `session.jsonl` contains append-only history.
-- Follow the CatchTail managed block in the target project's `AGENTS.md` for the
-  exact project-local CLI path.
-- When handling user input, claim one queued message before acting on it.
-- After claiming a message, print `**处理队列消息：**`, then print the message
-  body inside a fenced `text` code block, then list attachment paths and context
-  refs before handling it.
-- After handling the message, mark it complete with a short result.
-- If the milestone is still incomplete after completion, immediately wait again
-  instead of sending a final response.
-- While waiting, do not post heartbeat-style idle updates in chat. Keep the wait
-  tool running and speak only when a message, stop signal, timeout, or error
-  needs attention.
-- Only `milestone: completed` is the natural workflow exit condition.
-- Continue to obey Codex file-editing, shell, sandbox, and approval rules.
+协议：
+- 运行状态按 Codex hook 的 session_id 隔离；手动 CLI 默认使用 default session。
+- queue.json 只保存当前未领取的队列消息。
+- session.jsonl 保存追加式完整历史。
+- 处理用户输入时，先运行 `node ./bin/catchtail.js claim` 领取一条消息；处理后运行 `node ./bin/catchtail.js complete <id> <简短处理结果>`。
+- claim 到消息后，先在当前 Codex 对话里打印 `**处理队列消息：**`，再打印 `---`，然后把正文作为普通 Codex 原生渲染内容输出，随后列出附件路径和上下文提示，最后再打印 `---`。不要用 fenced code block 或 blockquote 包裹正文。
+- complete 后如果 milestone 仍未 completed，立即运行 `node ./bin/catchtail.js wait`，保持当前回合继续等待。
+- wait 运行期间不要在聊天里发送心跳式空闲更新；保持工具等待，只有收到消息、停止、超时或错误需要处理时再说话。
+- 消息里的文件是用户提供的本地路径；只有需要时再读取。
+- 只有 milestone completed 才自然停止。
+- 空闲时使用本地 wait 或 Stop hook 的长轮询；不要在聊天里高频轮询。
+- 继续遵守 Codex 对文件编辑、shell、MCP 工具和权限审批的安全边界。

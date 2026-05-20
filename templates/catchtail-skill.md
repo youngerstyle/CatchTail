@@ -8,9 +8,9 @@ description: 当用户说“启动交互式工作流”，或要求 Codex 通过
 当 CatchTail interactive mode 已启动时使用此 skill。
 
 协议：
-- 运行状态按 Codex hook 的 `session_id` 隔离；手动 CLI 默认使用 `default` session。
-- `queue.json` 只保存当前未领取的队列消息。
-- `session.jsonl` 保存追加式完整历史。
+- 运行状态按 Codex hook 的 session_id 隔离；手动 CLI 默认使用 default session。
+- queue.json 只保存当前未领取的队列消息。
+- session.jsonl 保存追加式完整历史。
 - 处理用户输入时，先运行 `node {{CLI_PATH}} claim` 领取一条消息；处理后运行 `node {{CLI_PATH}} complete <id> <简短处理结果>`。
 - claim 到消息后，先在当前 Codex 对话里打印 `**处理队列消息：**`，再打印 `---`，然后把正文作为普通 Codex 原生渲染内容输出，随后列出附件路径和上下文提示，最后再打印 `---`。不要用 fenced code block 或 blockquote 包裹正文。
 - complete 后如果 milestone 仍未 completed，立即运行 `node {{CLI_PATH}} wait`，保持当前回合继续等待。
