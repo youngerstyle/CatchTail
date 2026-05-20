@@ -86,8 +86,12 @@ test("CLI init accepts an explicit target path and preserves existing hooks", as
   assert.match(agents, /启动交互式工作流/);
   assert.match(agents, /不要用 fenced code block/);
   assert.match(agents, /处理队列消息/);
+  assert.match(agents, /附件路径：/);
+  assert.match(agents, /上下文提示：/);
   assert.match(skill, /启动交互式工作流/);
   assert.match(skill, /不要用 fenced code block/);
+  assert.match(skill, /附件路径：/);
+  assert.match(skill, /上下文提示：/);
 });
 
 test("CLI serve refreshes stale project protocol files", async () => {
@@ -111,6 +115,8 @@ test("CLI serve refreshes stale project protocol files", async () => {
   assert.doesNotMatch(agents, /再用 fenced `text` 代码块包裹正文/);
   assert.match(agents, /不要用 fenced code block/);
   assert.match(skill, /不要用 fenced code block/);
+  assert.match(agents, /附件路径：/);
+  assert.match(skill, /附件路径：/);
 });
 
 test("UserPromptSubmit enables interactive mode and returns CatchTail context", async () => {
@@ -190,7 +196,12 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
     assert.match(html, /data-queue-expand/);
     assert.match(html, /queue-summary-item/);
     assert.match(html, /queue-details/);
+    assert.match(script, /data-queue-edit/);
+    assert.match(script, /queue-detail-body/);
     assert.match(script, /editQueueItem/);
+    assert.match(script, /saveQueueEdit/);
+    assert.match(script, /\/api\/queue\/update/);
+    assert.match(script, /\/api\/queue\/editing/);
     assert.match(script, /syncQueueExpandButtons/);
     assert.doesNotThrow(() => new vm.Script(script));
 
@@ -247,6 +258,65 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
     }).then((response) => response.json());
     assert.equal(oldMentionClaim.item.id, oldMentionEnqueue.id);
     assert.equal(oldMentionClaim.item.body, "[$Demo Plugin](demo-plugin) already mentioned");
+
+    const first = await fetch(`${base}/api/queue?sessionId=session-edit`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ body: "first draft", kind: "message", files: [], refs: [] })
+    }).then((response) => response.json());
+    const second = await fetch(`${base}/api/queue?sessionId=session-edit`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ body: "second draft", kind: "message", files: [], refs: [] })
+    }).then((response) => response.json());
+
+    const update = await fetch(`${base}/api/queue/update?sessionId=session-edit`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: first.id, body: "first edited", files: [], refs: [] })
+    }).then((response) => response.json());
+    assert.equal(update.ok, true);
+    assert.equal(update.item.id, first.id);
+    assert.equal(update.item.body, "first edited");
+
+    const editedQueue = await fetch(`${base}/api/queue?sessionId=session-edit`).then((response) => response.json());
+    assert.deepEqual(editedQueue.items.map((item) => item.id), [first.id, second.id]);
+    assert.deepEqual(editedQueue.items.map((item) => item.body), ["first edited", "second draft"]);
+
+    const lockedFirst = await fetch(`${base}/api/queue?sessionId=session-edit-lock`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ body: "locked first", kind: "message", files: [], refs: [] })
+    }).then((response) => response.json());
+    const lockedSecond = await fetch(`${base}/api/queue?sessionId=session-edit-lock`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ body: "second waits", kind: "message", files: [], refs: [] })
+    }).then((response) => response.json());
+    const lock = await fetch(`${base}/api/queue/editing?sessionId=session-edit-lock`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: lockedFirst.id, editing: true })
+    }).then((response) => response.json());
+    assert.equal(lock.ok, true);
+
+    const lockedClaim = await fetch(`${base}/api/queue/claim?sessionId=session-edit-lock`, {
+      method: "POST"
+    }).then((response) => response.json());
+    assert.equal(lockedClaim.item, null);
+    const lockedQueue = await fetch(`${base}/api/queue?sessionId=session-edit-lock`).then((response) => response.json());
+    assert.deepEqual(lockedQueue.items.map((item) => item.id), [lockedFirst.id, lockedSecond.id]);
+
+    const unlock = await fetch(`${base}/api/queue/editing?sessionId=session-edit-lock`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ id: lockedFirst.id, editing: false })
+    }).then((response) => response.json());
+    assert.equal(unlock.ok, true);
+    const unlockedClaim = await fetch(`${base}/api/queue/claim?sessionId=session-edit-lock`, {
+      method: "POST"
+    }).then((response) => response.json());
+    assert.equal(unlockedClaim.item.id, lockedFirst.id);
   } finally {
     server.close();
     await rm(project, { recursive: true, force: true });

@@ -235,7 +235,7 @@ export function agentsProtocol(cliPath = "./bin/catchtail.js") {
 - session.jsonl 保存完整历史。
 - 待处理消息按 createdAt 顺序处理；不要只阅读 state 后口头总结。
 - 处理用户消息时先运行 \`node ${cliPath} claim\` 领取下一条消息。
-- claim 到消息后，先在当前 Codex 对话里打印 \`**处理队列消息：**\`，再打印 \`---\`，然后把正文作为普通 Codex 原生渲染内容输出，随后列出附件路径和上下文提示，最后再打印 \`---\`。不要用 fenced code block 或 blockquote 包裹正文。
+- claim 到消息后，必须严格按这个格式打印：先打印 \`**处理队列消息：**\`，空一行后打印 \`---\`，再空一行打印正文；正文后打印 \`附件路径：\`，有附件时每行 \`- <绝对路径>\`，没有附件时打印 \`无\`；再打印 \`上下文提示：\`，有 refs 时逐行列出，没有时打印 \`无\`；最后空一行打印 \`---\`。不要把附件标题缩写成“附件：”，不要省略标题，不要用 fenced code block 或 blockquote 包裹正文。
 - 回复或执行完该消息后，运行 \`node ${cliPath} complete <id> <简短处理结果>\` 标记完成。
 - complete 后如果 milestone 仍未 completed，立即运行 \`node ${cliPath} wait\` 等待下一条消息；不要发送 final 结束当前回合。
 - wait 运行期间不要在聊天里发送心跳式空闲更新；保持工具等待，只有收到消息、停止、超时或错误需要处理时再说话。

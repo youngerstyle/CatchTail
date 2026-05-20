@@ -137,6 +137,10 @@ export class CatchTailRuntime {
 
   claimNextMessage() {
     const queue = this.getQueue().items;
+    if (queue[0]?.editing) {
+      this.appendHistory({ type: "claim.blocked", messageId: queue[0].id, reason: "editing" });
+      return null;
+    }
     const item = queue.shift() ?? null;
     this.writeQueue(queue);
     if (item) this.appendHistory({ type: "claim", messageId: item.id, message: item });
@@ -157,8 +161,43 @@ export class CatchTailRuntime {
     return item;
   }
 
+  updateMessage(messageId, patch = {}) {
+    const queue = this.getQueue().items;
+    const index = queue.findIndex((item) => item.id === messageId);
+    if (index < 0) return null;
+    const item = {
+      ...queue[index],
+      body: String(patch.body ?? queue[index].body ?? ""),
+      files: Array.isArray(patch.files) ? patch.files : queue[index].files,
+      refs: Array.isArray(patch.refs) ? patch.refs : queue[index].refs,
+      editing: false,
+      updatedAt: new Date().toISOString()
+    };
+    queue[index] = item;
+    this.writeQueue(queue);
+    this.appendHistory({ type: "update", messageId, message: item });
+    return item;
+  }
+
+  setMessageEditing(messageId, editing) {
+    const queue = this.getQueue().items;
+    const index = queue.findIndex((item) => item.id === messageId);
+    if (index < 0) return null;
+    const item = {
+      ...queue[index],
+      editing: Boolean(editing),
+      editingAt: editing ? new Date().toISOString() : null
+    };
+    queue[index] = item;
+    this.writeQueue(queue);
+    this.appendHistory({ type: "editing", messageId, editing: item.editing });
+    return item;
+  }
+
   pendingMessages() {
-    return this.getQueue().items;
+    const queue = this.getQueue().items;
+    if (queue[0]?.editing) return [];
+    return queue;
   }
 
   handleHook(input) {
@@ -229,7 +268,7 @@ export function interactiveContext() {
     "CatchTail interactive mode is active.",
     "Runtime is lightweight: queue.json contains only unclaimed user input; session.jsonl contains history.",
     `When prompted by CatchTail, run \`${command} claim\`, handle that message, then run \`${command} complete <id> <short response>\`.`,
-    "After claiming a message, print `**处理队列消息：**`, then print `---`, then print the message body as normal Codex-rendered Markdown, then list attachment paths and context hints, then print a final `---`. Do not wrap the body in fenced code or blockquote syntax.",
+    "After claiming a message, use this exact display format: `**处理队列消息：**`, blank line, `---`, blank line, message body, then `附件路径：` with one `- <absolute path>` line per file or `无`, then `上下文提示：` with refs or `无`, blank line, final `---`. Do not shorten the attachment heading to `附件：`, do not omit headings, and do not wrap the body in fenced code or blockquote syntax.",
     `After complete, run \`${command} wait\` while milestone is incomplete; do not send final.`,
     "While wait is running, do not post heartbeat-style idle updates in chat; stay quiet until a message, stop signal, timeout, or error occurs.",
     "Stop only when milestone is completed."

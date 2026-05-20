@@ -53,6 +53,30 @@ export function createServer({ root = process.cwd(), openFile = openPathWithDefa
         notifyWaiters(waiters, { ok: true, reason: "cancel", id, sessionId: runtime.sessionId });
         return sendJson(response, { ok: true, item, sessionId: runtime.sessionId }, { cors: true });
       }
+      if (request.method === "POST" && url.pathname === "/api/queue/update") {
+        const runtime = queueRuntimeFor(root, url);
+        const body = await readJson(request);
+        const id = String(body.id ?? "");
+        if (!id) return sendJson(response, { ok: false, error: "Missing message id" }, { status: 400, cors: true });
+        const item = runtime.updateMessage(id, {
+          body: String(body.body ?? ""),
+          files: normalizeFilePaths(body.files),
+          refs: normalizeRefs(body.refs)
+        });
+        if (!item) return sendJson(response, { ok: false, error: "Queue item not found" }, { status: 404, cors: true });
+        notifyWaiters(waiters, { ok: true, reason: "update", id, sessionId: runtime.sessionId });
+        return sendJson(response, { ok: true, item, sessionId: runtime.sessionId }, { cors: true });
+      }
+      if (request.method === "POST" && url.pathname === "/api/queue/editing") {
+        const runtime = queueRuntimeFor(root, url);
+        const body = await readJson(request);
+        const id = String(body.id ?? "");
+        if (!id) return sendJson(response, { ok: false, error: "Missing message id" }, { status: 400, cors: true });
+        const item = runtime.setMessageEditing(id, Boolean(body.editing));
+        if (!item) return sendJson(response, { ok: false, error: "Queue item not found" }, { status: 404, cors: true });
+        if (!item.editing) notifyWaiters(waiters, { ok: true, reason: "editing", id, sessionId: runtime.sessionId });
+        return sendJson(response, { ok: true, item, sessionId: runtime.sessionId }, { cors: true });
+      }
       if (request.method === "POST" && url.pathname === "/api/queue/complete") {
         const runtime = queueRuntimeFor(root, url);
         const body = await readJson(request);
@@ -289,6 +313,11 @@ function normalizeRefs(value) {
       seen.add(key);
       return true;
     });
+}
+
+function normalizeFilePaths(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((path) => String(path ?? "").trim()).filter(Boolean);
 }
 
 function refMentionText(ref) {
@@ -699,16 +728,6 @@ function renderConsole() {
     .queue-content {
       min-width: 0;
     }
-    .queue-item.expanded {
-      align-items: start;
-    }
-    .queue-item.expanded .queue-body {
-      display: block;
-      min-height: 0;
-      overflow: visible;
-      white-space: pre-wrap;
-      word-break: break-word;
-    }
     .queue-details {
       display: none;
       margin-top: 8px;
@@ -718,6 +737,12 @@ function renderConsole() {
     .queue-item.expanded .queue-details {
       display: grid;
       gap: 6px;
+    }
+    .queue-detail-body {
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.5;
     }
     .queue-file {
       display: grid;
@@ -791,6 +816,45 @@ function renderConsole() {
       height: 14px;
     }
     .queue-action[hidden] { display: none; }
+    .queue-editor {
+      display: grid;
+      gap: 8px;
+    }
+    .queue-editor textarea {
+      width: 100%;
+      min-height: 88px;
+      max-height: 220px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px 10px;
+      font: inherit;
+      line-height: 1.45;
+      color: var(--text);
+      background: var(--panel);
+    }
+    .queue-editor textarea:focus {
+      outline: none;
+      border-color: rgba(37, 99, 235, .55);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+    }
+    .queue-editor-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .queue-editor-actions button {
+      height: 30px;
+      padding: 0 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      background: var(--soft);
+    }
+    .queue-editor-actions button.primary {
+      color: white;
+      background: var(--blue);
+    }
     .composer-shell {
       position: fixed;
       left: 0;
@@ -1318,9 +1382,10 @@ function renderConsole() {
     </button>
   </div>
   <script>
-    const state = { files: [], refs: [], sessionId: 'default', draftLoaded: false };
+    const state = { files: [], refs: [], queueItems: [], sessionId: 'default', draftLoaded: false };
     const slash = { entries: [], visible: [], active: 0, forced: false, filterType: null };
     const expandedQueueItems = new Set();
+    let editingQueueItemId = null;
     const message = document.getElementById('message');
     const fileInput = document.getElementById('fileInput');
     const attachments = document.getElementById('attachments');
@@ -1352,6 +1417,7 @@ function renderConsole() {
       const appState = await api('/api/state');
       state.sessionId = appState.sessionId;
       const queue = await api('/api/queue?sessionId=' + encodeURIComponent(state.sessionId));
+      state.queueItems = queue.items;
       document.getElementById('sessionLabel').textContent = appState.sessionId;
       document.getElementById('queueCount').textContent = String(queue.items.length);
       document.getElementById('queueList').innerHTML = queue.items.length
@@ -1363,21 +1429,23 @@ function renderConsole() {
 
     function renderQueueItem(item) {
       const expanded = expandedQueueItems.has(item.id);
+      const editing = editingQueueItemId === item.id;
       const body = item.body || '(空消息)';
       const bodyAlreadyMentionsRefs = (item.refs || []).some(ref => body.includes(referenceMentionText(ref)) || body.includes(ref.value));
       const refs = bodyAlreadyMentionsRefs ? '' : (item.refs || [])
         .map((ref, index) => renderReference({ id: 'queue-' + item.id + '-' + index, ...ref }))
         .join('');
       const title = (item.refs || []).map(ref => '[' + ref.type + ':' + ref.value + ']').join(' ') + (item.refs?.length ? ' ' : '') + body;
-      const hasDetails = Boolean(item.files?.length);
+      const hasDetails = Boolean(item.files?.length || item.refs?.length || body.includes(String.fromCharCode(10)));
       return '<div class="queue-item' + (expanded ? ' expanded' : '') + '" data-has-details="' + String(hasDetails) + '">' +
         '<div class="queue-kind">' + escapeHtml(item.kind) + '</div>' +
         '<div class="queue-content">' +
-          '<div class="queue-body" title="' + escapeHtml(title) + '">' + refs + (refs ? ' ' : '') + renderQueueBody(body, item.refs || [], item.id) + '</div>' +
-          renderQueueDetails(item) +
+          (editing ? renderQueueEditor(item) :
+            '<div class="queue-body" title="' + escapeHtml(title) + '">' + refs + (refs ? ' ' : '') + renderQueueBody(body, item.refs || [], item.id) + '</div>' +
+            renderQueueDetails(item)) +
         '</div>' +
         '<div class="queue-meta">' + renderQueueSummary(item) +
-          '<span class="queue-actions">' +
+          '<span class="queue-actions"' + (editing ? ' hidden' : '') + '>' +
             '<button class="queue-action" data-queue-expand type="button" title="' + (expanded ? '收起' : '展开') + '" aria-label="' + (expanded ? '收起' : '展开') + '" onclick="toggleQueueItem(&quot;' + escapeHtml(item.id) + '&quot;)">' +
               '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="' + (expanded ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6') + '" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
             '</button>' +
@@ -1412,14 +1480,29 @@ function renderConsole() {
       return '<span class="queue-summary">' + entries.join('') + '</span>';
     }
 
+    function renderQueueEditor(item) {
+      return '<div class="queue-editor">' +
+        '<textarea data-queue-edit="' + escapeHtml(item.id) + '">' + escapeHtml(item.body || '') + '</textarea>' +
+        '<div class="queue-editor-actions">' +
+          '<button type="button" onclick="cancelQueueEdit(&quot;' + escapeHtml(item.id) + '&quot;)">取消</button>' +
+          '<button class="primary" type="button" onclick="saveQueueEdit(&quot;' + escapeHtml(item.id) + '&quot;)">保存</button>' +
+        '</div>' +
+      '</div>';
+    }
+
     function renderQueueDetails(item) {
-      if (!item.files?.length) return '';
-      return '<div class="queue-details">' + item.files.map(path =>
-        '<div class="queue-file" title="' + escapeHtml(path) + '">' +
-          '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 3h7l5 5v13H7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 3v5h5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>' +
-          '<span>' + escapeHtml(fileNameFromPath(path)) + '</span>' +
-        '</div>'
-      ).join('') + '</div>';
+      const rows = [];
+      if (item.body) rows.push('<div class="queue-detail-body">' + renderQueueBody(item.body, item.refs || [], item.id + '-detail') + '</div>');
+      if (item.files?.length) {
+        rows.push(...item.files.map(path =>
+          '<div class="queue-file" title="' + escapeHtml(path) + '">' +
+            '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 3h7l5 5v13H7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 3v5h5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>' +
+            '<span>' + escapeHtml(fileNameFromPath(path)) + '</span>' +
+          '</div>'
+        ));
+      }
+      if (!rows.length) return '';
+      return '<div class="queue-details">' + rows.join('') + '</div>';
     }
 
     function syncQueueExpandButtons() {
@@ -1623,16 +1706,45 @@ function renderConsole() {
     };
 
     window.editQueueItem = async function editQueueItem(id) {
-      const result = await api('/api/queue/cancel?sessionId=' + encodeURIComponent(state.sessionId), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ id, reason: 'editing from console' })
-      });
-      loadQueueItemIntoComposer(result.item);
+      if (editingQueueItemId && editingQueueItemId !== id) await setQueueEditing(editingQueueItemId, false);
+      await setQueueEditing(id, true);
+      editingQueueItemId = id;
       expandedQueueItems.delete(id);
       await refresh();
-      message.focus();
+      const editor = document.querySelector('[data-queue-edit="' + cssEscape(id) + '"]');
+      if (editor) {
+        editor.focus();
+        editor.selectionStart = editor.selectionEnd = editor.value.length;
+      }
     };
+
+    window.cancelQueueEdit = async function cancelQueueEdit(id) {
+      if (id || editingQueueItemId) await setQueueEditing(id || editingQueueItemId, false);
+      editingQueueItemId = null;
+      await refresh();
+    };
+
+    window.saveQueueEdit = async function saveQueueEdit(id) {
+      const editor = document.querySelector('[data-queue-edit="' + cssEscape(id) + '"]');
+      if (!editor) return;
+      const item = state.queueItems.find(item => item.id === id);
+      await api('/api/queue/update?sessionId=' + encodeURIComponent(state.sessionId), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id, body: editor.value, files: item?.files || [], refs: item?.refs || [] })
+      });
+      editingQueueItemId = null;
+      expandedQueueItems.delete(id);
+      await refresh();
+    };
+
+    async function setQueueEditing(id, editing) {
+      await api('/api/queue/editing?sessionId=' + encodeURIComponent(state.sessionId), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id, editing })
+      });
+    }
 
     function loadQueueItemIntoComposer(item) {
       message.innerHTML = '';
@@ -2039,6 +2151,11 @@ function renderConsole() {
 
     function escapeHtml(value) {
       return String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function cssEscape(value) {
+      if (window.CSS?.escape) return CSS.escape(value);
+      return String(value);
     }
 
     function selectionInsideEditor() {
