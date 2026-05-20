@@ -134,6 +134,11 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
     assert.match(script, /dataset\.refType/);
     assert.match(script, /editorPromptText/);
     assert.match(script, /\[\$'/);
+    assert.match(html, /data-queue-expand/);
+    assert.match(html, /queue-summary-item/);
+    assert.match(html, /queue-details/);
+    assert.match(script, /editQueueItem/);
+    assert.match(script, /syncQueueExpandButtons/);
     assert.doesNotThrow(() => new vm.Script(script));
 
     const enqueue = await fetch(`${base}/api/queue?sessionId=session-b`, {

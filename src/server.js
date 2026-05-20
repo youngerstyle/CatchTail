@@ -683,6 +683,49 @@ function renderConsole() {
       text-overflow: ellipsis;
       white-space: nowrap;
       line-height: 1.45;
+      min-height: 28px;
+      display: flex;
+      align-items: center;
+    }
+    .queue-content {
+      min-width: 0;
+    }
+    .queue-item.expanded {
+      align-items: start;
+    }
+    .queue-item.expanded .queue-body {
+      display: block;
+      min-height: 0;
+      overflow: visible;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .queue-details {
+      display: none;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .queue-item.expanded .queue-details {
+      display: grid;
+      gap: 6px;
+    }
+    .queue-file {
+      display: grid;
+      grid-template-columns: 18px minmax(0, 1fr);
+      align-items: center;
+      gap: 7px;
+      min-height: 24px;
+    }
+    .queue-file svg {
+      width: 16px;
+      height: 16px;
+      color: var(--muted);
+    }
+    .queue-file span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .queue-meta {
       display: flex;
@@ -692,7 +735,33 @@ function renderConsole() {
       font-size: 12px;
       white-space: nowrap;
     }
-    .queue-cancel {
+    .queue-summary {
+      min-height: 28px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .queue-summary:empty {
+      display: none;
+    }
+    .queue-summary-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 18px;
+      color: var(--muted);
+    }
+    .queue-summary-item svg {
+      width: 15px;
+      height: 15px;
+      color: var(--muted);
+    }
+    .queue-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .queue-action {
       width: 28px;
       height: 28px;
       border-radius: 8px;
@@ -700,21 +769,19 @@ function renderConsole() {
       place-items: center;
       color: var(--muted);
     }
-    .queue-cancel:hover {
+    .queue-action:hover {
+      background: var(--soft);
+      color: var(--text);
+    }
+    .queue-action.danger:hover {
       background: #fef2f2;
       color: var(--danger);
     }
-    .queue-cancel svg {
+    .queue-action svg {
       width: 14px;
       height: 14px;
     }
-    .dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--blue);
-      display: inline-block;
-    }
+    .queue-action[hidden] { display: none; }
     .composer-shell {
       position: fixed;
       left: 0;
@@ -1244,6 +1311,7 @@ function renderConsole() {
   <script>
     const state = { files: [], refs: [], sessionId: 'default', draftLoaded: false };
     const slash = { entries: [], visible: [], active: 0, forced: false, filterType: null };
+    const expandedQueueItems = new Set();
     const message = document.getElementById('message');
     const fileInput = document.getElementById('fileInput');
     const attachments = document.getElementById('attachments');
@@ -1280,28 +1348,81 @@ function renderConsole() {
       document.getElementById('queueList').innerHTML = queue.items.length
         ? queue.items.map(renderQueueItem).join('')
         : '<div class="queue-empty">队列是空的，新的消息会出现在这里</div>';
+      syncQueueExpandButtons();
       if (!state.draftLoaded) loadDraft();
     }
 
     function renderQueueItem(item) {
-      const parts = [];
-      if (item.files?.length) parts.push(item.files.length + ' 个附件');
-      if (item.refs?.length) parts.push(item.refs.length + ' 个上下文提示');
-      const attachmentText = parts.length ? parts.join(' · ') : '无附件';
+      const expanded = expandedQueueItems.has(item.id);
       const body = item.body || '(空消息)';
       const bodyAlreadyMentionsRefs = (item.refs || []).some(ref => body.includes(referenceMentionText(ref)) || body.includes(ref.value));
       const refs = bodyAlreadyMentionsRefs ? '' : (item.refs || [])
         .map((ref, index) => renderReference({ id: 'queue-' + item.id + '-' + index, ...ref }))
         .join('');
       const title = (item.refs || []).map(ref => '[' + ref.type + ':' + ref.value + ']').join(' ') + (item.refs?.length ? ' ' : '') + body;
-      return '<div class="queue-item">' +
+      const hasDetails = Boolean(item.files?.length);
+      return '<div class="queue-item' + (expanded ? ' expanded' : '') + '" data-has-details="' + String(hasDetails) + '">' +
         '<div class="queue-kind">' + escapeHtml(item.kind) + '</div>' +
-        '<div class="queue-body" title="' + escapeHtml(title) + '">' + refs + (refs ? ' ' : '') + renderQueueBody(body, item.refs || [], item.id) + '</div>' +
-        '<div class="queue-meta"><span>' + attachmentText + '</span><span class="dot"></span>' +
-          '<button class="queue-cancel" type="button" title="取消队列项" aria-label="取消队列项" onclick="cancelQueueItem(&quot;' + escapeHtml(item.id) + '&quot;)">' +
-            '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>' +
-          '</button></div>' +
+        '<div class="queue-content">' +
+          '<div class="queue-body" title="' + escapeHtml(title) + '">' + refs + (refs ? ' ' : '') + renderQueueBody(body, item.refs || [], item.id) + '</div>' +
+          renderQueueDetails(item) +
+        '</div>' +
+        '<div class="queue-meta">' + renderQueueSummary(item) +
+          '<span class="queue-actions">' +
+            '<button class="queue-action" data-queue-expand type="button" title="' + (expanded ? '收起' : '展开') + '" aria-label="' + (expanded ? '收起' : '展开') + '" onclick="toggleQueueItem(&quot;' + escapeHtml(item.id) + '&quot;)">' +
+              '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="' + (expanded ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6') + '" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+            '</button>' +
+            '<button class="queue-action" type="button" title="编辑" aria-label="编辑" onclick="editQueueItem(&quot;' + escapeHtml(item.id) + '&quot;)">' +
+              '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2.8 2.8 0 0 0-4-4L4 16v4Z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/><path d="m13.5 6.5 4 4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>' +
+            '</button>' +
+            '<button class="queue-action danger" type="button" title="取消队列项" aria-label="取消队列项" onclick="cancelQueueItem(&quot;' + escapeHtml(item.id) + '&quot;)">' +
+              '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>' +
+            '</button>' +
+          '</span></div>' +
       '</div>';
+    }
+
+    function renderQueueSummary(item) {
+      const entries = [];
+      if (item.files?.length) {
+        entries.push(
+          '<span class="queue-summary-item" title="附件">' +
+            '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m21.4 11.6-8.5 8.5a6 6 0 0 1-8.5-8.5l8.5-8.5a4 4 0 0 1 5.7 5.7l-8.6 8.5a2 2 0 1 1-2.8-2.8l8-8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+            '<span>' + item.files.length + '</span>' +
+          '</span>'
+        );
+      }
+      if (item.refs?.length) {
+        entries.push(
+          '<span class="queue-summary-item" title="上下文">' +
+            '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m12 3 8 4.5-8 4.5-8-4.5L12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m4 12 8 4.5 8-4.5M4 16.5l8 4.5 8-4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+            '<span>' + item.refs.length + '</span>' +
+          '</span>'
+        );
+      }
+      return '<span class="queue-summary">' + entries.join('') + '</span>';
+    }
+
+    function renderQueueDetails(item) {
+      if (!item.files?.length) return '';
+      return '<div class="queue-details">' + item.files.map(path =>
+        '<div class="queue-file" title="' + escapeHtml(path) + '">' +
+          '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 3h7l5 5v13H7z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 3v5h5" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>' +
+          '<span>' + escapeHtml(fileNameFromPath(path)) + '</span>' +
+        '</div>'
+      ).join('') + '</div>';
+    }
+
+    function syncQueueExpandButtons() {
+      document.querySelectorAll('.queue-item').forEach(item => {
+        const button = item.querySelector('[data-queue-expand]');
+        const body = item.querySelector('.queue-body');
+        if (!button || !body) return;
+        const hasDetails = item.dataset.hasDetails === 'true';
+        const expanded = item.classList.contains('expanded');
+        const bodyOverflows = body.scrollWidth > body.clientWidth + 1;
+        button.hidden = !expanded && !hasDetails && !bodyOverflows;
+      });
     }
 
     function renderQueueBody(body, refs, itemId) {
@@ -1482,8 +1603,87 @@ function renderConsole() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ id, reason: 'cancelled from console' })
       });
+      expandedQueueItems.delete(id);
       await refresh();
     };
+
+    window.toggleQueueItem = async function toggleQueueItem(id) {
+      if (expandedQueueItems.has(id)) expandedQueueItems.delete(id);
+      else expandedQueueItems.add(id);
+      await refresh();
+    };
+
+    window.editQueueItem = async function editQueueItem(id) {
+      const result = await api('/api/queue/cancel?sessionId=' + encodeURIComponent(state.sessionId), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id, reason: 'editing from console' })
+      });
+      loadQueueItemIntoComposer(result.item);
+      expandedQueueItems.delete(id);
+      await refresh();
+      message.focus();
+    };
+
+    function loadQueueItemIntoComposer(item) {
+      message.innerHTML = '';
+      state.refs = [];
+      state.files.forEach(revokePreview);
+      state.files = (item.files || []).map(path => ({
+        name: fileNameFromPath(path),
+        path,
+        uploadedPath: path,
+        type: '',
+        size: 0
+      }));
+      renderBodyIntoEditor(item.body || '', item.refs || []);
+      renderAttachments();
+      saveDraft();
+      updateSendState();
+    }
+
+    function fileNameFromPath(path) {
+      return String(path).split(/[\\/]/).filter(Boolean).pop() || String(path);
+    }
+
+    function renderBodyIntoEditor(body, refs) {
+      const segments = bodySegmentsWithRefs(body, refs);
+      if (!segments.some(segment => segment.type === 'ref') && refs.length) {
+        refs.forEach(ref => appendReferenceToken(ref));
+        if (body) message.append(document.createTextNode(' ' + body));
+        return;
+      }
+      for (const segment of segments) {
+        if (segment.type === 'ref') appendReferenceToken(segment.ref);
+        else if (segment.text) message.append(document.createTextNode(segment.text));
+      }
+    }
+
+    function bodySegmentsWithRefs(body, refs) {
+      let segments = [{ type: 'text', text: body }];
+      refs.forEach(ref => {
+        const mention = referenceMentionText(ref);
+        segments = segments.flatMap(segment => {
+          if (segment.type !== 'text' || !segment.text.includes(mention)) return [segment];
+          const parts = segment.text.split(mention);
+          const next = [];
+          parts.forEach((part, index) => {
+            if (part) next.push({ type: 'text', text: part });
+            if (index < parts.length - 1) next.push({ type: 'ref', ref });
+          });
+          return next;
+        });
+      });
+      return segments;
+    }
+
+    function appendReferenceToken(ref) {
+      const normalized = { id: crypto.randomUUID(), type: ref.type, value: ref.value, label: ref.label || '', detail: ref.detail || '', source: ref.source || '' };
+      state.refs.push(normalized);
+      const template = document.createElement('template');
+      template.innerHTML = renderReference(normalized);
+      message.append(template.content.firstElementChild);
+    }
 
     function addFiles(files) {
       for (const file of files) {
