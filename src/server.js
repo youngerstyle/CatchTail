@@ -858,22 +858,30 @@ function renderConsole() {
     .reference-token {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       max-width: min(460px, 100%);
-      min-height: 26px;
-      padding: 3px 6px;
-      border-radius: 8px;
+      min-height: 20px;
+      padding: 0 2px;
+      border-radius: 4px;
       color: #1d4ed8;
-      background: #eff6ff;
+      background: transparent;
       font-size: 13px;
-      line-height: 1.2;
+      line-height: inherit;
+      vertical-align: baseline;
     }
+    .reference-token:hover { background: #eff6ff; }
     .reference-token-icon {
       display: grid;
       place-items: center;
-      width: 18px;
-      height: 18px;
+      width: 15px;
+      height: 15px;
       flex: 0 0 auto;
+    }
+    .reference-token-icon svg,
+    .slash-icon svg {
+      width: 100%;
+      height: 100%;
+      display: block;
     }
     .reference-token-name {
       min-width: 0;
@@ -881,28 +889,6 @@ function renderConsole() {
       text-overflow: ellipsis;
       white-space: nowrap;
       font-weight: 650;
-    }
-    .reference-kind {
-      flex: 0 0 auto;
-      color: #64748b;
-      font-size: 11px;
-      margin-left: 2px;
-    }
-    .reference-remove {
-      display: grid;
-      place-items: center;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      color: #64748b;
-    }
-    .reference-remove:hover {
-      color: #111827;
-      background: #dbeafe;
-    }
-    .reference-remove svg {
-      width: 11px;
-      height: 11px;
     }
     .attachment-remove {
       position: absolute;
@@ -1204,14 +1190,9 @@ function renderConsole() {
     function renderReference(ref) {
       const meta = referenceMeta(ref);
       const title = escapeHtml(meta.title);
-      const kind = escapeHtml(ref.type === 'plugin' ? '插件' : '技能');
       return '<span class="reference-token" contenteditable="false" data-ref-id="' + escapeHtml(ref.id) + '" title="' + title + '">' +
         '<span class="reference-token-icon" aria-hidden="true">' + referenceIcon(ref.type) + '</span>' +
         '<span class="reference-token-name">' + escapeHtml(meta.label) + '</span>' +
-        '<span class="reference-kind">' + kind + '</span>' +
-        '<button class="reference-remove" type="button" onclick="event.stopPropagation(); removeRef(&quot;' + escapeHtml(ref.id) + '&quot;)" aria-label="移除上下文">' +
-          '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>' +
-        '</button>' +
       '</span>';
     }
 
@@ -1228,9 +1209,9 @@ function renderConsole() {
 
     function referenceIcon(type) {
       if (type === 'plugin') {
-        return '<svg viewBox="0 0 24 24" fill="none"><path d="M9 3h4.2a2.3 2.3 0 0 1 2.3 2.3v1.2h1.2A2.3 2.3 0 0 1 19 8.8V13h-2.2a1.8 1.8 0 1 0 0 3.6H19v2.1a2.3 2.3 0 0 1-2.3 2.3H12v-2.2a1.8 1.8 0 1 0-3.6 0V21H5.3A2.3 2.3 0 0 1 3 18.7V15h2.2a1.8 1.8 0 1 0 0-3.6H3V8.8a2.3 2.3 0 0 1 2.3-2.3H7V5a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>';
+        return '<svg viewBox="0 0 24 24" fill="none"><path d="M8 3h8v4h2a3 3 0 1 1 0 6h-2v8H8v-4H6a3 3 0 1 1 0-6h2V3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path></svg>';
       }
-      return '<svg viewBox="0 0 24 24" fill="none"><path d="M7 8h10M7 12h6m-6 4h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v13A2.5 2.5 0 0 1 17.5 21h-11A2.5 2.5 0 0 1 4 18.5z" stroke="currentColor" stroke-width="1.6"/></svg>';
+      return '<svg viewBox="0 0 24 24" fill="none"><path d="m12 3 8 4.5-8 4.5-8-4.5L12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"></path><path d="m4 12 8 4.5 8-4.5M4 16.5l8 4.5 8-4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path></svg>';
     }
 
     function renderAttachment(file, index) {
