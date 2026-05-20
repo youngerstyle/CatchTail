@@ -266,12 +266,19 @@ async function readJson(request) {
 
 function normalizeRefs(value) {
   if (!Array.isArray(value)) return [];
+  const seen = new Set();
   return value
     .map((ref) => ({
       type: String(ref?.type ?? "path").trim().toLowerCase(),
       value: String(ref?.value ?? "").trim()
     }))
-    .filter((ref) => ref.value && ["skill", "plugin", "path"].includes(ref.type));
+    .filter((ref) => ref.value && ["skill", "plugin", "path"].includes(ref.type))
+    .filter((ref) => {
+      const key = `${ref.type}:${ref.value}`.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 function discoverRefs(root) {

@@ -138,7 +138,12 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
         body: "hello",
         kind: "message",
         files: [],
-        refs: [{ type: "skill", value: "catchtail-interactive" }]
+        refs: [
+          { type: "skill", value: "catchtail-interactive" },
+          { type: "skill", value: "catchtail-interactive" },
+          { type: "plugin", value: "browser" },
+          { type: "plugin", value: "browser" }
+        ]
       })
     }).then((response) => response.json());
     assert.equal(enqueue.ok, true);
@@ -148,7 +153,10 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
     }).then((response) => response.json());
     assert.equal(claim.item.id, enqueue.id);
     assert.equal(claim.item.body, "hello");
-    assert.deepEqual(claim.item.refs, [{ type: "skill", value: "catchtail-interactive" }]);
+    assert.deepEqual(claim.item.refs, [
+      { type: "skill", value: "catchtail-interactive" },
+      { type: "plugin", value: "browser" }
+    ]);
 
     const complete = await fetch(`${base}/api/queue/complete?sessionId=session-b`, {
       method: "POST",
