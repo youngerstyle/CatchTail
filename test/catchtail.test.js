@@ -104,7 +104,7 @@ test("published package includes the repo marketplace entry", () => {
   assert.match(bundledSkill, /\.\.\/\.\.\/bin\/catchtail\.js/);
   assert.match(bundledSkill, /后台启动/);
   assert.match(bundledSkill, /不要以前台常驻命令阻塞后续流程/);
-  assert.match(bundledSkill, /CODEX_THREAD_ID/);
+  assert.match(bundledSkill, /--session <id>/);
   assert.doesNotMatch(bundledSkill, /node "\.\/bin\/catchtail\.js"/);
 });
 
@@ -122,8 +122,8 @@ test("installer quotes generated CLI commands when plugin path contains spaces",
   assert.equal(result.status, 0, result.stderr);
 
   const agents = readFileSync(join(project, "AGENTS.md"), "utf8");
-  const statusCommand = agents.match(/`(node\s+"[^`]+catchtail\.js"\s+)claim`/)?.[1] + "status";
-  assert.match(statusCommand, /^node\s+"[^"]+plugin with spaces[^"]+catchtail\.js"\s+status$/);
+  const statusCommand = agents.match(/`(node\s+"[^`]+catchtail\.js"\s+)claim`/)?.[1] + "--session quoted-session status";
+  assert.match(statusCommand, /^node\s+"[^"]+plugin with spaces[^"]+catchtail\.js"\s+--session quoted-session status$/);
 
   const status = spawnSync(statusCommand, { cwd: project, encoding: "utf8", shell: true });
   assert.equal(status.status, 0, status.stderr);
@@ -204,33 +204,42 @@ test("CLI serve records independent sidecars per session", async () => {
   assert.equal(two.sidecar.waitUrl, `${two.sidecar.consoleUrl}/api/wait`);
 });
 
-test("CLI serve defaults to the current Codex thread env when session is omitted", async () => {
-  const project = tempProject("serve-env-session");
+test("CLI serve refuses to fall back to default when session is unavailable", async () => {
+  const project = tempProject("serve-missing-session");
 
   const result = await runCli(["serve", "0"], {
     root: project,
-    stayOpen: false,
-    env: { CODEX_THREAD_ID: "thread-from-env" }
+    stayOpen: false
   });
-  assert.equal(result.exitCode, 0, result.stderr);
-
-  const envState = readJson(join(project, ".catchtail", "sessions", "thread-from-env", "state.json"));
-  assert.match(envState.sidecar.consoleUrl, /^http:\/\/127\.0\.0\.1:\d+$/);
+  assert.equal(result.exitCode, 2);
+  assert.match(result.stderr, /without a Codex session id/);
+  assert.match(result.stderr, /Refusing to fall back to `default`/);
   assert.equal(existsSync(join(project, ".catchtail", "sessions", "default")), false);
 });
 
-test("CLI explicit session overrides Codex thread env", async () => {
+test("CLI explicit session is required for session-scoped commands", async () => {
   const project = tempProject("serve-explicit-session");
 
   const result = await runCli(["--session", "explicit-session", "serve", "0"], {
     root: project,
-    stayOpen: false,
-    env: { CODEX_THREAD_ID: "thread-from-env" }
+    stayOpen: false
   });
   assert.equal(result.exitCode, 0, result.stderr);
 
   assert.equal(existsSync(join(project, ".catchtail", "sessions", "explicit-session", "state.json")), true);
-  assert.equal(existsSync(join(project, ".catchtail", "sessions", "thread-from-env")), false);
+  assert.equal(existsSync(join(project, ".catchtail", "sessions", "default")), false);
+});
+
+test("CLI rejects --session without a value", async () => {
+  const project = tempProject("serve-missing-session-value");
+
+  const result = await runCli(["--session"], {
+    root: project,
+    stayOpen: false,
+    env: {}
+  });
+  assert.equal(result.exitCode, 2);
+  assert.match(result.stderr, /Missing value for --session/);
 });
 
 test("uninstall accepts remove flag before the project path", () => {
@@ -353,6 +362,38 @@ test("UserPromptSubmit accepts the CatchTail nickname start prompt", async () =>
   const state = readJson(join(project, ".catchtail", "sessions", "session-alias", "state.json"));
   assert.equal(state.interactive.enabled, true);
   assert.equal(state.interactive.milestone, "incomplete");
+});
+
+test("hook refuses to fall back to default when session is unavailable", async () => {
+  const project = tempProject("hook-missing-session");
+  const payload = {
+    hook_event_name: "UserPromptSubmit",
+    prompt: "鍚姩浜や簰寮忓伐浣滄祦"
+  };
+
+  const result = await runHook({ root: project, stdin: JSON.stringify(payload), env: {} });
+  assert.equal(result.exitCode, 2);
+  assert.match(result.stderr, /missing session_id/);
+  assert.match(result.stderr, /Refusing to use default/);
+  assert.equal(existsSync(join(project, ".catchtail", "sessions", "default")), false);
+});
+
+test("hook refuses env-only sessions without payload session_id", async () => {
+  const project = tempProject("hook-env-only-session");
+  const payload = {
+    hook_event_name: "UserPromptSubmit",
+    prompt: "鍚姩浜や簰寮忓伐浣滄祦"
+  };
+
+  const result = await runHook({
+    root: project,
+    stdin: JSON.stringify(payload),
+    env: { CODEX_THREAD_ID: "thread-from-env" }
+  });
+  assert.equal(result.exitCode, 2);
+  assert.match(result.stderr, /missing session_id/);
+  assert.equal(existsSync(join(project, ".catchtail", "sessions", "thread-from-env")), false);
+  assert.equal(existsSync(join(project, ".catchtail", "sessions", "default")), false);
 });
 
 test("server queue API can enqueue, claim, and complete a message", async () => {

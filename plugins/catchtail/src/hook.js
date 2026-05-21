@@ -19,9 +19,17 @@ export async function runHook({
   }
 
   try {
+    const sessionId = String(payload.session_id ?? "").trim();
+    if (!sessionId) {
+      return {
+        exitCode: 2,
+        stdout: "",
+        stderr: "CatchTail hook payload is missing session_id. Refusing to use default.\n"
+      };
+    }
     const runtime = new CatchTailRuntime({
       root,
-      sessionId: payload.session_id ?? env.CODEX_SESSION_ID ?? env.CODEX_THREAD_ID
+      sessionId
     });
     if (shouldWaitBeforeStop(runtime, payload)) {
       await waitForActivity({

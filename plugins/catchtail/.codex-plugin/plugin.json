@@ -1,6 +1,6 @@
 {
   "name": "catchtail",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "description": "用于长时间 Codex 会话的本地 hook sidecar，让任务执行中仍可继续交互。",
   "author": {
     "name": "CatchTail",
