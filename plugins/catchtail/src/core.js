@@ -6,7 +6,7 @@ import {
   renameSync,
   writeFileSync
 } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
@@ -276,9 +276,23 @@ export function interactiveContext() {
 }
 
 function cliCommand() {
-  const cliPath = relative(process.cwd(), join(PROJECT_ROOT, "bin", "catchtail.js")) || join(PROJECT_ROOT, "bin", "catchtail.js");
-  const normalized = cliPath.startsWith("..") ? cliPath : `.${cliPath.startsWith("\\") || cliPath.startsWith("/") ? "" : "/"}${cliPath}`;
-  return `node ${normalized.replaceAll("\\", "/")}`;
+  const target = join(PROJECT_ROOT, "bin", "catchtail.js");
+  const relativePath = relative(process.cwd(), target);
+  const path = relativePath && !isAbsolute(relativePath) ? relativePath : target;
+  return `node ${JSON.stringify(normalizeCommandPath(path))}`;
+}
+
+function normalizeCommandPath(path) {
+  const normalized = String(path).replaceAll("\\", "/");
+  if (
+    normalized.startsWith("./")
+    || normalized.startsWith("../")
+    || normalized.startsWith("/")
+    || /^[A-Za-z]:\//.test(normalized)
+  ) {
+    return normalized;
+  }
+  return `./${normalized}`;
 }
 
 function buildContinuationPrompt(messages, interactive) {

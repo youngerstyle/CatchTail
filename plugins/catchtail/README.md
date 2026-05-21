@@ -42,7 +42,7 @@ surface around it.
 
 Installation is a one-time project setup step, not a CatchTail runtime skill.
 When you ask Codex to install and initialize the GitHub repository, it fetches
-this project, runs `plugins/catchtail/scripts/install.mjs` against the current target project, and
+this project, runs `scripts/install.mjs` against the current target project, and
 starts the local console. The installer writes the project hook config, a
 project-local runtime skill, and a managed `AGENTS.md` block.
 
@@ -86,8 +86,8 @@ GitHub repository URL, or when developing CatchTail itself:
 ```powershell
 git clone https://github.com/youngerstyle/CatchTail.git $env:USERPROFILE\.codex\catchtail
 cd C:\path\to\your-project
-node $env:USERPROFILE\.codex\catchtail\plugins\catchtail\scripts\install.mjs .
-node $env:USERPROFILE\.codex\catchtail\plugins\catchtail\bin\catchtail.js serve
+node $env:USERPROFILE\.codex\catchtail\scripts\install.mjs .
+node $env:USERPROFILE\.codex\catchtail\bin\catchtail.js serve
 ```
 
 ## The Basic Workflow
@@ -102,14 +102,14 @@ node $env:USERPROFILE\.codex\catchtail\plugins\catchtail\bin\catchtail.js serve
 ## What's Inside
 
 ```text
-plugins/catchtail/.codex-plugin/plugin.json        Plugin manifest
-plugins/catchtail/hooks.json                       Hook declaration
-plugins/catchtail/skills/catchtail-interactive/    Runtime workflow skill template
-plugins/catchtail/scripts/install.mjs              Project installer
-plugins/catchtail/scripts/uninstall.mjs            Managed-block cleanup helper
-plugins/catchtail/bin/catchtail.js                 CLI entrypoint
-plugins/catchtail/src/                             Runtime, hook, CLI, and console
-plugins/catchtail/docs/protocol.md                 Protocol details
+.codex-plugin/plugin.json        Plugin manifest
+hooks.json                       Hook declaration
+skills/catchtail-interactive/    Runtime workflow skill
+scripts/install.mjs              Project installer
+scripts/uninstall.mjs            Managed-block cleanup helper
+bin/catchtail.js                 CLI entrypoint
+src/                             Runtime, hook, CLI, and console
+docs/protocol.md                 Protocol details
 ```
 
 Runtime data is written to the target project:
@@ -146,7 +146,7 @@ rerun the installer:
 ```powershell
 cd C:\path\to\CatchTail
 git pull
-node .\plugins\catchtail\scripts\install.mjs C:\path\to\your-project
+node .\scripts\install.mjs C:\path\to\your-project
 ```
 
 For users already on `0.1.17` or older, update to `0.1.18` or newer and restart the
@@ -154,7 +154,7 @@ console from the target project:
 
 ```powershell
 cd C:\path\to\your-project
-node $env:USERPROFILE\.codex\catchtail\plugins\catchtail\bin\catchtail.js serve
+node $env:USERPROFILE\.codex\catchtail\bin\catchtail.js serve
 ```
 
 Starting `serve` refreshes the managed CatchTail block in `AGENTS.md`, the

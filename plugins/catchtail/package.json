@@ -9,19 +9,28 @@
     "url": "https://github.com/youngerstyle/CatchTail.git"
   },
   "bin": {
-    "catchtail": "./plugins/catchtail/bin/catchtail.js"
+    "catchtail": "./bin/catchtail.js"
   },
   "scripts": {
-    "start": "node ./plugins/catchtail/bin/catchtail.js serve",
-    "install:project": "node ./plugins/catchtail/scripts/install.mjs",
-    "uninstall:project": "node ./plugins/catchtail/scripts/uninstall.mjs"
+    "start": "node ./bin/catchtail.js serve",
+    "install:project": "node ./scripts/install.mjs",
+    "uninstall:project": "node ./scripts/uninstall.mjs"
   },
   "files": [
-    ".agents/",
+    ".codex-plugin/",
+    "AGENTS.catchtail.md",
+    "assets/",
+    "README.md",
+    "bin/",
+    "docs/",
+    "hooks/",
+    "hooks.json",
     "LICENSE",
     "PRIVACY.md",
-    "plugins/",
-    "README.md",
+    "scripts/",
+    "skills/",
+    "src/",
+    "templates/",
     "TERMS.md"
   ],
   "engines": {

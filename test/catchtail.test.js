@@ -1,5 +1,5 @@
 import { once } from "node:events";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -8,11 +8,12 @@ import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { runCli } from "../src/cli.js";
-import { runHook } from "../src/hook.js";
-import { createServer } from "../src/server.js";
+import { runCli } from "../plugins/catchtail/src/cli.js";
+import { runHook } from "../plugins/catchtail/src/hook.js";
+import { createServer } from "../plugins/catchtail/src/server.js";
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(REPO_ROOT, "plugins", "catchtail");
 
 function tempProject(name) {
   return mkdtempSync(join(tmpdir(), `catchtail-${name}-`));
@@ -20,6 +21,19 @@ function tempProject(name) {
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8").replace(/^\uFEFF/, ""));
+}
+
+function copyPluginFixture(target) {
+  for (const entry of [
+    "bin",
+    "hooks",
+    "scripts",
+    "src",
+    "templates",
+    "package.json"
+  ]) {
+    cpSync(join(ROOT, entry), join(target, entry), { recursive: true });
+  }
 }
 
 test("installer preserves existing hooks, replaces stale CatchTail hook, and tolerates BOM", () => {
@@ -63,6 +77,48 @@ test("plugin manifest has marketplace-facing assets and policy links", () => {
   assert.match(manifest.interface.privacyPolicyURL, /PRIVACY\.md$/);
   assert.match(manifest.interface.termsOfServiceURL, /TERMS\.md$/);
   assert.equal(manifest.interface.defaultPrompt[0], "启动交互式工作流");
+});
+
+test("published package includes the repo marketplace entry", () => {
+  const pkg = readJson(join(REPO_ROOT, "package.json"));
+  assert.equal(pkg.files.includes(".agents/"), true);
+  assert.equal(pkg.files.includes("plugins/"), true);
+  const marketplace = readJson(join(REPO_ROOT, ".agents", "plugins", "marketplace.json"));
+  const entry = marketplace.plugins[0];
+  assert.equal(entry.name, "catchtail");
+  assert.equal(entry.source.source, "local");
+  assert.equal(entry.source.path, "./plugins/catchtail");
+  assert.equal(entry.policy.installation, "AVAILABLE");
+  assert.equal(entry.policy.authentication, "ON_INSTALL");
+  assert.equal(entry.category, "Productivity");
+
+  const sourceRoot = resolve(REPO_ROOT, entry.source.path);
+  const sourceManifest = readJson(join(sourceRoot, ".codex-plugin", "plugin.json"));
+  assert.equal(sourceManifest.name, entry.name);
+  assert.equal(Object.hasOwn(sourceManifest, "skills"), false);
+});
+
+test("installer quotes generated CLI commands when plugin path contains spaces", () => {
+  const base = tempProject("plugin path with spaces");
+  const pluginRoot = join(base, "plugin with spaces");
+  const project = join(base, "target project");
+  mkdirSync(pluginRoot, { recursive: true });
+  mkdirSync(project, { recursive: true });
+  copyPluginFixture(pluginRoot);
+
+  const result = spawnSync(process.execPath, [join(pluginRoot, "scripts", "install.mjs"), project], {
+    encoding: "utf8"
+  });
+  assert.equal(result.status, 0, result.stderr);
+
+  const agents = readFileSync(join(project, "AGENTS.md"), "utf8");
+  const statusCommand = agents.match(/`(node\s+"[^`]+catchtail\.js"\s+)claim`/)?.[1] + "status";
+  assert.match(statusCommand, /^node\s+"[^"]+plugin with spaces[^"]+catchtail\.js"\s+status$/);
+
+  const status = spawnSync(statusCommand, { cwd: project, encoding: "utf8", shell: true });
+  assert.equal(status.status, 0, status.stderr);
+  assert.match(status.stdout, /"state":/);
+  assert.match(status.stdout, /"queue": \[\]/);
 });
 
 test("CLI init accepts an explicit target path and preserves existing hooks", async () => {
@@ -117,6 +173,32 @@ test("CLI serve refreshes stale project protocol files", async () => {
   assert.match(skill, /不要用 fenced code block/);
   assert.match(agents, /附件路径：/);
   assert.match(skill, /附件路径：/);
+});
+
+test("uninstall accepts remove flag before the project path", () => {
+  const project = tempProject("uninstall");
+  writeFileSync(
+    join(project, "AGENTS.md"),
+    [
+      "before",
+      "<!-- CatchTail:START -->",
+      "managed",
+      "<!-- CatchTail:END -->",
+      "after"
+    ].join("\n") + "\n"
+  );
+
+  const result = spawnSync(process.execPath, [
+    join(ROOT, "scripts", "uninstall.mjs"),
+    "--remove-agents-block",
+    project
+  ], { encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
+
+  const agents = readFileSync(join(project, "AGENTS.md"), "utf8");
+  assert.doesNotMatch(agents, /CatchTail:START/);
+  assert.match(agents, /before/);
+  assert.match(agents, /after/);
 });
 
 test("UserPromptSubmit enables interactive mode and returns CatchTail context", async () => {
