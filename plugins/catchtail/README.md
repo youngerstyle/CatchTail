@@ -6,15 +6,13 @@ CatchTail 让你在 Codex 长时间执行任务时，仍然可以继续给它发
 
 ## 快速开始
 
-在 Codex 里打开 `/plugins`，搜索并安装 `CatchTail`。
+把下面这句话发给 Codex，让 AI 帮你完成安装：
 
-如果 CatchTail 还没有出现在插件列表里，先添加这个 marketplace：
-
-```powershell
-codex plugin marketplace add https://github.com/youngerstyle/CatchTail
+```text
+请从 https://github.com/youngerstyle/CatchTail 安装并启用 CatchTail 插件
 ```
 
-然后回到 `/plugins` 安装或启用 `CatchTail`。Codex 会自己处理下载、缓存目录和插件启用。
+Codex 会自己添加 marketplace、下载插件、放到缓存目录，并在 `/plugins` 里安装或启用 `CatchTail`。
 
 安装完成后，在你要工作的项目里对 Codex 说：
 
@@ -32,19 +30,30 @@ http://127.0.0.1:<port>
 
 ## 安装
 
-标准安装只走 Codex plugin marketplace：
+推荐做法是直接让 Codex 安装：
+
+```text
+请从 https://github.com/youngerstyle/CatchTail 安装并启用 CatchTail 插件
+```
+
+AI 会使用 Codex plugin marketplace 完成安装。需要手动排障时，对应命令是：
 
 ```powershell
 codex plugin marketplace add https://github.com/youngerstyle/CatchTail
 ```
 
-添加 marketplace 后，在 Codex 的 `/plugins` 里安装或启用 `CatchTail`。
 
 安装过程由 Codex 插件系统负责。它会读取本仓库的 `.agents/plugins/marketplace.json`，把插件放到 Codex 的插件缓存位置，并按插件 manifest 加载 hooks 和 skills。目标项目不是安装目录，也不需要包含 CatchTail 的 marketplace 文件。
 
 ## 更新
 
-通过 Codex 插件系统更新 marketplace：
+让 Codex 帮你更新：
+
+```text
+请更新 CatchTail 插件
+```
+
+AI 会通过 Codex 插件系统更新 marketplace。需要手动排障时，对应命令是：
 
 ```powershell
 codex plugin marketplace upgrade catchtail
@@ -52,7 +61,13 @@ codex plugin marketplace upgrade catchtail
 
 更新后在 `/plugins` 确认 `CatchTail` 仍处于启用状态。
 
-如果你曾经按旧文档添加过 `catchtail-local`，先移除旧 marketplace，再添加新的 `catchtail`：
+如果你曾经按旧文档添加过 `catchtail-local`，也可以直接让 Codex 清理：
+
+```text
+请移除旧的 catchtail-local marketplace，并重新安装 CatchTail
+```
+
+手动排障命令是：
 
 ```powershell
 codex plugin marketplace remove catchtail-local
@@ -61,23 +76,29 @@ codex plugin marketplace add https://github.com/youngerstyle/CatchTail
 
 ## 卸载
 
-在 `/plugins` 中卸载或禁用 `CatchTail`。如果要移除整个 marketplace：
+让 Codex 帮你卸载并清理：
+
+```text
+请卸载 CatchTail 插件，并清理 CatchTail 的 marketplace 和本项目里的 .catchtail 运行状态
+```
+
+AI 会在 `/plugins` 中卸载或禁用 `CatchTail`，并按你的要求清理本项目的 `.catchtail/` 运行状态。如果要手动移除整个 marketplace，对应命令是：
 
 ```powershell
 codex plugin marketplace remove catchtail
 ```
 
-旧文档里的 marketplace 名称是 `catchtail-local`。如果你的环境里还有这个旧入口，也可以移除：
+旧文档里的 marketplace 名称是 `catchtail-local`。如果你的环境里还有这个旧入口，也可以让 Codex 一并清理；手动命令是：
 
 ```powershell
 codex plugin marketplace remove catchtail-local
 ```
 
-标准插件卸载不会删除用户项目。CatchTail 运行时写入当前项目的 `.catchtail/` 状态目录；如果你想清掉历史队列和会话记录，可以删除该目录。早期项目级安装残留只在迁移时需要单独清理。
+标准插件卸载不会删除用户项目。CatchTail 运行时只会在当前项目写入 `.catchtail/` 状态目录；需要清掉历史队列和会话记录时，让 Codex 删除这个目录即可。早期项目级安装残留只在迁移时需要单独清理。
 
 ## 基本工作流
 
-1. 通过 `/plugins` 安装并启用 `CatchTail`。
+1. 对 Codex 说：`请从 https://github.com/youngerstyle/CatchTail 安装并启用 CatchTail 插件`。
 2. 在 Codex 中打开目标项目。
 3. 对 Codex 说 `启动 CatchTail 控制台并启动交互式工作流`。
 4. 在本地控制台继续发送消息、附件或上下文提示。
