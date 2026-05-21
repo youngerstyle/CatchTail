@@ -117,6 +117,12 @@ test("published package includes the repo marketplace entry", () => {
   assert.match(bundledSkill, /不要以前台常驻命令阻塞后续流程/);
   assert.match(bundledSkill, /--session <id>/);
   assert.doesNotMatch(bundledSkill, /node "\.\/bin\/catchtail\.js"/);
+
+  const maintenanceSkill = readFileSync(join(sourceRoot, "skills", "catchtail-maintenance", "SKILL.md"), "utf8");
+  assert.match(maintenanceSkill, /更新 CatchTail 插件/);
+  assert.match(maintenanceSkill, /插件 cache/);
+  assert.match(maintenanceSkill, /last_revision/);
+  assert.match(maintenanceSkill, /不能报告“已更新成功”/);
 });
 
 test("installer quotes generated CLI commands when plugin path contains spaces", () => {
