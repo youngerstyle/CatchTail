@@ -53,7 +53,7 @@ codex plugin marketplace add https://github.com/youngerstyle/CatchTail
 请更新 CatchTail 插件
 ```
 
-AI 会通过 CatchTail 自带的维护流程更新 marketplace，并验证实际插件缓存版本已经刷新。只看到 marketplace `last_revision` 更新不算完成；必须确认已安装的 CatchTail 插件 cache 版本也是最新版本。
+AI 会通过 CatchTail 自带的维护流程更新 marketplace，并验证实际插件缓存版本已经刷新。只看到 marketplace `last_revision` 更新不算完成；必须确认已安装的 CatchTail 插件 cache 版本也是最新版本，并清理旧版本 cache，只保留当前启用版本。
 
 需要手动排障时，对应命令是：
 

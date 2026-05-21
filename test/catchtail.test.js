@@ -123,6 +123,8 @@ test("published package includes the repo marketplace entry", () => {
   assert.match(maintenanceSkill, /插件 cache/);
   assert.match(maintenanceSkill, /last_revision/);
   assert.match(maintenanceSkill, /不能报告“已更新成功”/);
+  assert.match(maintenanceSkill, /只保留当前启用的 CatchTail 版本/);
+  assert.match(maintenanceSkill, /旧版本 cache 已清理/);
 });
 
 test("installer quotes generated CLI commands when plugin path contains spaces", () => {

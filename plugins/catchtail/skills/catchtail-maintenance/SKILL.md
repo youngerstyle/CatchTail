@@ -21,12 +21,14 @@ description: 当用户要求安装、更新、刷新、重装、卸载或清理 
 - 必须检查 `~/.codex/plugins/cache/catchtail/catchtail/` 下的最高版本目录，并读取 `.codex-plugin/plugin.json` 的 `version`。
 - 如果 marketplace 已经更新，但插件 cache 里仍然没有新版本，不能报告“已更新成功”。继续使用 Codex 的插件安装/启用机制刷新 `CatchTail`，必要时先禁用/卸载旧的 `CatchTail`，再重新安装/启用。
 - 成功标准是：已启用的 CatchTail 插件 cache 版本等于 marketplace 中最新 CatchTail manifest 版本。
-- 回复用户时报告两项证据：marketplace revision，以及实际已加载/已缓存的 CatchTail 插件版本。
+- 更新成功后清理 `~/.codex/plugins/cache/catchtail/catchtail/` 下的旧版本目录，只保留当前启用的 CatchTail 版本；不要让用户看到多个历史版本并存。
+- 回复用户时报告三项证据：marketplace revision、实际已加载/已缓存的 CatchTail 插件版本，以及旧版本 cache 已清理。
 
 ## 卸载
 
 - 通过 Codex 的插件卸载/禁用机制卸载或禁用 `CatchTail`。
 - 如果用户要求清理 marketplace，移除 `catchtail` marketplace。
+- 清理 `~/.codex/plugins/cache/catchtail/catchtail/` 下的 CatchTail 插件缓存；卸载后不应残留旧版本目录让用户误以为仍已安装。
 - 如果用户要求清理运行状态，只删除目标项目里的 `.catchtail/`；不要删除用户项目本身。
 
 ## 失败处理
