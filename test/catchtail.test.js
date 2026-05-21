@@ -104,6 +104,7 @@ test("published package includes the repo marketplace entry", () => {
   assert.match(bundledSkill, /\.\.\/\.\.\/bin\/catchtail\.js/);
   assert.match(bundledSkill, /后台启动/);
   assert.match(bundledSkill, /不要以前台常驻命令阻塞后续流程/);
+  assert.match(bundledSkill, /CODEX_THREAD_ID/);
   assert.doesNotMatch(bundledSkill, /node "\.\/bin\/catchtail\.js"/);
 });
 
@@ -201,6 +202,35 @@ test("CLI serve records independent sidecars per session", async () => {
   assert.match(two.sidecar.consoleUrl, /^http:\/\/127\.0\.0\.1:\d+$/);
   assert.equal(one.sidecar.waitUrl, `${one.sidecar.consoleUrl}/api/wait`);
   assert.equal(two.sidecar.waitUrl, `${two.sidecar.consoleUrl}/api/wait`);
+});
+
+test("CLI serve defaults to the current Codex thread env when session is omitted", async () => {
+  const project = tempProject("serve-env-session");
+
+  const result = await runCli(["serve", "0"], {
+    root: project,
+    stayOpen: false,
+    env: { CODEX_THREAD_ID: "thread-from-env" }
+  });
+  assert.equal(result.exitCode, 0, result.stderr);
+
+  const envState = readJson(join(project, ".catchtail", "sessions", "thread-from-env", "state.json"));
+  assert.match(envState.sidecar.consoleUrl, /^http:\/\/127\.0\.0\.1:\d+$/);
+  assert.equal(existsSync(join(project, ".catchtail", "sessions", "default")), false);
+});
+
+test("CLI explicit session overrides Codex thread env", async () => {
+  const project = tempProject("serve-explicit-session");
+
+  const result = await runCli(["--session", "explicit-session", "serve", "0"], {
+    root: project,
+    stayOpen: false,
+    env: { CODEX_THREAD_ID: "thread-from-env" }
+  });
+  assert.equal(result.exitCode, 0, result.stderr);
+
+  assert.equal(existsSync(join(project, ".catchtail", "sessions", "explicit-session", "state.json")), true);
+  assert.equal(existsSync(join(project, ".catchtail", "sessions", "thread-from-env")), false);
 });
 
 test("uninstall accepts remove flag before the project path", () => {

@@ -11,9 +11,9 @@ const SKILL_TEMPLATE_PATH = resolve(MODULE_DIR, "..", "templates", "catchtail-sk
 
 export async function runCli(
   argv = process.argv.slice(2),
-  { root = process.cwd(), fetchImpl = fetch, stayOpen = true } = {}
+  { root = process.cwd(), fetchImpl = fetch, stayOpen = true, env = process.env } = {}
 ) {
-  const parsed = parseGlobalArgs(argv);
+  const parsed = parseGlobalArgs(argv, env);
   const command = parsed.argv[0] ?? "help";
   const sessionId = parsed.sessionId;
 
@@ -45,14 +45,21 @@ export async function runCliMain() {
   process.exitCode = result.exitCode;
 }
 
-function parseGlobalArgs(argv) {
+function parseGlobalArgs(argv, env = process.env) {
   const args = [...argv];
-  let sessionId = "default";
+  let sessionId = defaultSessionIdFromEnv(env);
   if (args[0] === "--session" || args[0] === "-s") {
-    sessionId = args[1] ?? "default";
+    sessionId = args[1] ?? sessionId;
     args.splice(0, 2);
   }
   return { argv: args, sessionId };
+}
+
+function defaultSessionIdFromEnv(env = process.env) {
+  return env.CODEX_SESSION_ID
+    ?? env.CODEX_THREAD_ID
+    ?? env.CODEX_CONVERSATION_ID
+    ?? "default";
 }
 
 function initProject(root) {
@@ -300,7 +307,7 @@ function helpText() {
   return `CatchTail
 
 Commands:
-  --session <id>     Select a Codex session id (default: default)
+  --session <id>     Select a Codex session id (default: CODEX_SESSION_ID, CODEX_THREAD_ID, then default)
   init               Create Codex hook config and protocol files
   serve [port]       Start this session's local web console (default port: 0)
   status             Print state and queue for a session

@@ -21,7 +21,7 @@ export async function runHook({
   try {
     const runtime = new CatchTailRuntime({
       root,
-      sessionId: payload.session_id
+      sessionId: payload.session_id ?? env.CODEX_SESSION_ID ?? env.CODEX_THREAD_ID
     });
     if (shouldWaitBeforeStop(runtime, payload)) {
       await waitForActivity({
