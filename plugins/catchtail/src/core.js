@@ -126,6 +126,13 @@ export class CatchTailRuntime {
     this.appendHistory({ type: "sidecar", sidecar: info });
   }
 
+  clearSidecar(reason = "closed") {
+    this.updateState((state) => {
+      state.sidecar = null;
+    });
+    this.appendHistory({ type: "sidecar.closed", reason });
+  }
+
   enqueueMessage({ body, kind = "message", files = [], refs = [] }) {
     const item = {
       id: randomUUID(),

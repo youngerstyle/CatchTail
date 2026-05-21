@@ -6,10 +6,17 @@ import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { CatchTailRuntime } from "./core.js";
 
-export function createServer({ root = process.cwd(), defaultSessionId = "default", openFile = openPathWithDefaultApp } = {}) {
+export function createServer({
+  root = process.cwd(),
+  defaultSessionId = "default",
+  openFile = openPathWithDefaultApp,
+  onActivity = null,
+  onCompleted = null
+} = {}) {
   const waiters = new Set();
-  return createHttpServer(async (request, response) => {
+  const server = createHttpServer(async (request, response) => {
     try {
+      onActivity?.();
       const url = new URL(request.url, "http://127.0.0.1");
 
       if (request.method === "GET" && url.pathname === "/") {
@@ -149,6 +156,7 @@ export function createServer({ root = process.cwd(), defaultSessionId = "default
           milestone: body.milestone,
           sessionId: runtime.sessionId
         });
+        if (body.milestone === "completed") onCompleted?.(runtime.sessionId);
         return sendJson(response, { ok: true, sessionId: runtime.sessionId });
       }
 
@@ -159,6 +167,8 @@ export function createServer({ root = process.cwd(), defaultSessionId = "default
       response.end(JSON.stringify({ error: error.message }));
     }
   });
+  server.catchTailNotifyWaiters = (payload) => notifyWaiters(waiters, payload);
+  return server;
 }
 
 function runtimeFor(root, url, defaultSessionId = "default") {

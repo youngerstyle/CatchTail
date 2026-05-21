@@ -4,6 +4,7 @@ import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
+import { setTimeout as sleep } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import assert from "node:assert/strict";
@@ -34,6 +35,16 @@ function copyPluginFixture(target) {
   ]) {
     cpSync(join(ROOT, entry), join(target, entry), { recursive: true });
   }
+}
+
+async function waitFor(predicate, { timeoutMs = 3000, intervalMs = 25 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const value = await predicate();
+    if (value) return value;
+    await sleep(intervalMs);
+  }
+  throw new Error("Timed out waiting for condition");
 }
 
 test("installer preserves existing hooks, replaces stale CatchTail hook, and tolerates BOM", () => {
@@ -202,6 +213,86 @@ test("CLI serve records independent sidecars per session", async () => {
   assert.match(two.sidecar.consoleUrl, /^http:\/\/127\.0\.0\.1:\d+$/);
   assert.equal(one.sidecar.waitUrl, `${one.sidecar.consoleUrl}/api/wait`);
   assert.equal(two.sidecar.waitUrl, `${two.sidecar.consoleUrl}/api/wait`);
+});
+
+test("CLI serve exits when the session milestone is completed", async () => {
+  const project = tempProject("serve-completed");
+  const running = runCli(["--session", "session-done", "serve", "0"], {
+    root: project,
+    stayOpen: true,
+    env: { CATCHTAIL_SIDECAR_IDLE_MS: "60000" }
+  });
+
+  const statePath = join(project, ".catchtail", "sessions", "session-done", "state.json");
+  const state = await waitFor(() => existsSync(statePath) && readJson(statePath).sidecar);
+  await fetch(`${state.consoleUrl}/api/milestone?sessionId=session-done`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ milestone: "completed" })
+  });
+
+  const result = await running;
+  assert.equal(result.exitCode, 0, result.stderr);
+  assert.match(result.stdout, /completed/);
+  assert.equal(readJson(statePath).sidecar, null);
+});
+
+test("CLI serve ignores completed milestones for other sessions", async () => {
+  const project = tempProject("serve-other-session-completed");
+  const running = runCli(["--session", "session-stays-open", "serve", "0"], {
+    root: project,
+    stayOpen: true,
+    env: { CATCHTAIL_SIDECAR_IDLE_MS: "60000" }
+  });
+
+  const statePath = join(project, ".catchtail", "sessions", "session-stays-open", "state.json");
+  const state = await waitFor(() => existsSync(statePath) && readJson(statePath).sidecar);
+  await fetch(`${state.consoleUrl}/api/milestone?sessionId=other-session`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ milestone: "completed" })
+  });
+
+  await sleep(100);
+  assert.notEqual(readJson(statePath).sidecar, null);
+
+  await fetch(`${state.consoleUrl}/api/milestone?sessionId=session-stays-open`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ milestone: "completed" })
+  });
+  const result = await running;
+  assert.equal(result.exitCode, 0, result.stderr);
+  assert.match(result.stdout, /completed/);
+});
+
+test("CLI serve exits after the sidecar idle timeout", async () => {
+  const project = tempProject("serve-idle-timeout");
+  const result = await runCli(["--session", "session-idle", "serve", "0"], {
+    root: project,
+    stayOpen: true,
+    env: { CATCHTAIL_SIDECAR_IDLE_MS: "1000" }
+  });
+
+  assert.equal(result.exitCode, 0, result.stderr);
+  assert.match(result.stdout, /idle-timeout/);
+  const state = readJson(join(project, ".catchtail", "sessions", "session-idle", "state.json"));
+  assert.equal(state.sidecar, null);
+});
+
+test("CLI wait fails when no sidecar is registered for the session", async () => {
+  const project = tempProject("wait-no-sidecar");
+
+  const result = await runCli(["--session", "session-without-sidecar", "wait", "1"], {
+    root: project,
+    fetchImpl: async () => {
+      throw new Error("wait must not call a fallback URL");
+    }
+  });
+
+  assert.equal(result.exitCode, 2);
+  assert.match(result.stderr, /No CatchTail sidecar is registered/);
+  assert.match(result.stderr, /--session session-without-sidecar serve 0/);
 });
 
 test("CLI serve refuses to fall back to default when session is unavailable", async () => {

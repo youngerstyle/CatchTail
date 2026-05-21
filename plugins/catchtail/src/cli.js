@@ -11,7 +11,7 @@ const SKILL_TEMPLATE_PATH = resolve(MODULE_DIR, "..", "templates", "catchtail-sk
 
 export async function runCli(
   argv = process.argv.slice(2),
-  { root = process.cwd(), fetchImpl = fetch, stayOpen = true } = {}
+  { root = process.cwd(), fetchImpl = fetch, stayOpen = true, env = process.env } = {}
 ) {
   const parsed = parseGlobalArgs(argv);
   if (parsed.error) return errorResult(parsed.error);
@@ -20,7 +20,7 @@ export async function runCli(
 
   if (command === "init") return initProject(resolve(parsed.argv[1] ?? root));
   if (requiresSession(command) && !sessionId) return missingSessionResult(command);
-  if (command === "serve") return serve(root, Number(parsed.argv[1] ?? 0), { stayOpen, sessionId });
+  if (command === "serve") return serve(root, Number(parsed.argv[1] ?? 0), { stayOpen, sessionId, env });
   if (command === "status") return status(root, sessionId);
   if (command === "wait") {
     return waitForSidecar(root, sessionId, parsed.argv[1], fetchImpl);
@@ -85,7 +85,7 @@ function initProject(root) {
         "CatchTail initialized.",
         "Created .codex/hooks.json, .agents/skills/catchtail-interactive/, AGENTS.catchtail.md, and .catchtail/sessions/.",
         "Updated AGENTS.md with the CatchTail managed block.",
-        `Run: node ${quoteCommandPath(cliPath)} serve`
+        `Run from hook context: node ${quoteCommandPath(cliPath)} --session <id> serve 0`
       ].join("\n") + "\n",
     stderr: ""
   };
@@ -114,9 +114,21 @@ function cliPathForProject(root) {
   return commandPathForProject(root, join(PROJECT_ROOT, "bin", "catchtail.js"));
 }
 
-async function serve(root, port, { stayOpen = true, sessionId } = {}) {
+async function serve(root, port, { stayOpen = true, sessionId, env = process.env } = {}) {
   const runtime = new CatchTailRuntime({ root, sessionId });
-  const server = createServer({ root, defaultSessionId: runtime.sessionId });
+  let lastActivityAt = Date.now();
+  let closeReason = "closed";
+  let shutdown = null;
+  const server = createServer({
+    root,
+    defaultSessionId: runtime.sessionId,
+    onActivity: () => {
+      lastActivityAt = Date.now();
+    },
+    onCompleted: (completedSessionId) => {
+      if (completedSessionId === runtime.sessionId) shutdown?.("completed");
+    }
+  });
   await new Promise((resolve, reject) => {
     server.once("error", reject);
     server.listen(port, "127.0.0.1", () => {
@@ -134,10 +146,45 @@ async function serve(root, port, { stayOpen = true, sessionId } = {}) {
     });
   });
   if (!stayOpen) {
-    await new Promise((resolve) => server.close(resolve));
+    await closeServer(server);
     return { exitCode: 0, stdout: "", stderr: "" };
   }
-  return new Promise(() => {});
+  const idleMs = sidecarIdleMs(env);
+  const timer = setInterval(() => {
+    const state = runtime.getState();
+    if (state.interactive?.milestone === "completed") {
+      shutdown?.("completed");
+      return;
+    }
+    if (Date.now() - lastActivityAt >= idleMs) shutdown?.("idle-timeout");
+  }, Math.min(idleMs, 30000));
+  timer.unref?.();
+
+  return new Promise((resolve) => {
+    shutdown = async (reason = "closed") => {
+      if (!server.listening) return;
+      closeReason = reason;
+      clearInterval(timer);
+      server.catchTailNotifyWaiters?.({ ok: false, reason, sessionId: runtime.sessionId });
+      await closeServer(server);
+      runtime.clearSidecar(reason);
+      resolve({ exitCode: 0, stdout: `CatchTail sidecar closed: ${closeReason}\n`, stderr: "" });
+    };
+    process.once("SIGINT", () => shutdown("sigint"));
+    process.once("SIGTERM", () => shutdown("sigterm"));
+  });
+}
+
+function sidecarIdleMs(env = process.env) {
+  const value = Number(env.CATCHTAIL_SIDECAR_IDLE_MS ?? 30 * 60 * 1000);
+  if (!Number.isFinite(value)) return 30 * 60 * 1000;
+  return Math.max(1000, value);
+}
+
+function closeServer(server) {
+  return new Promise((resolve, reject) => {
+    server.close((error) => (error ? reject(error) : resolve()));
+  });
 }
 
 function status(root, sessionId) {
@@ -172,7 +219,15 @@ async function waitForSidecar(root, sessionId, timeoutArg, fetchImpl) {
   let lastError = null;
   while (Date.now() < deadline) {
     const remaining = Math.max(1, deadline - Date.now());
-    const waitUrl = new URL(runtime.getState().sidecar?.waitUrl ?? "http://127.0.0.1:3787/api/wait");
+    const sidecar = runtime.getState().sidecar;
+    if (!sidecar?.waitUrl) {
+      return {
+        exitCode: 2,
+        stdout: "",
+        stderr: `No CatchTail sidecar is registered for session ${sessionId}. Start it with the hook-injected \`--session ${sessionId} serve 0\` command.\n`
+      };
+    }
+    const waitUrl = new URL(sidecar.waitUrl);
     waitUrl.searchParams.set("sessionId", sessionId);
     waitUrl.searchParams.set("timeoutMs", String(Math.min(remaining, 240000)));
     try {
