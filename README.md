@@ -6,13 +6,17 @@ CatchTail 让你在 Codex 长时间执行任务时，仍然可以继续给它发
 
 ## 快速开始
 
-在你要使用 CatchTail 的 Codex 会话里，把下面这句话原样发给 AI：
+在 Codex 里打开 `/plugins`，搜索并安装 `CatchTail`。
 
-```text
-安装 CatchTail 插件：在 Codex 插件/marketplace 中添加并启用完整 GitHub 地址 https://github.com/youngerstyle/CatchTail，插件名 catchtail@catchtail-local；不要把源码下载到当前项目。
+如果 CatchTail 还没有出现在插件列表里，先添加这个 marketplace：
+
+```powershell
+codex plugin marketplace add https://github.com/youngerstyle/CatchTail
 ```
 
-安装完成后，对 Codex 说：
+然后回到 `/plugins` 安装或启用 `CatchTail`。Codex 会自己处理下载、缓存目录和插件启用。
+
+安装完成后，在你要工作的项目里对 Codex 说：
 
 ```text
 启动 CatchTail 控制台并启动交互式工作流
@@ -26,76 +30,54 @@ http://127.0.0.1:3787
 
 控制台服务启动后，你就可以在本地控制台继续发送消息、上传文件、补充上下文，或者停止当前交互队列。
 
-## AI 执行标准
+## 安装
 
-当用户说“安装 CatchTail 插件”时，AI 应该通过 Codex 插件/marketplace 流程添加这个 GitHub marketplace。必须使用完整 GitHub 地址，不要只写 `youngerstyle/CatchTail`，因为安装过程需要让 Codex/Git 明确知道远程仓库在哪里：
+标准安装只走 Codex plugin marketplace：
 
-```text
-https://github.com/youngerstyle/CatchTail
+```powershell
+codex plugin marketplace add https://github.com/youngerstyle/CatchTail
 ```
 
-安装完成必须确认两件事都成立：
+添加 marketplace 后，在 Codex 的 `/plugins` 里安装或启用 `CatchTail`。
 
-```toml
-[marketplaces.catchtail-local]
-source_type = "git"
-source = "https://github.com/youngerstyle/CatchTail.git"
-```
-
-并且插件已启用：
-
-```toml
-[plugins."catchtail@catchtail-local"]
-enabled = true
-```
-
-不要把 CatchTail 当成普通源码项目下载到当前项目、桌面相邻目录或用户开发目录。`scripts/install.mjs` 只用于旧版项目级安装迁移、开发调试或没有 marketplace 能力的环境，不是标准安装入口。
-
-如果某个环境里的 CLI marketplace add 在 Windows 上失败，AI 不能改成把源码放到当前项目旁边；应该改用 Codex 插件界面/marketplace 能力完成安装，或者明确告诉用户当前 Codex CLI 无法完成标准 marketplace 安装。
-
-当用户说“启动 CatchTail 控制台并启动交互式工作流”时，AI 应该先使用已安装插件中的 CatchTail CLI 启动本地控制台服务，再发送或触发“启动交互式工作流”。启动后必须把实际控制台地址告诉用户；不要让用户在服务未启动时直接打开端口。
+安装过程由 Codex 插件系统负责。它会读取本仓库的 `.agents/plugins/marketplace.json`，把插件放到 Codex 的插件缓存位置，并按插件 manifest 加载 hooks 和 skills。目标项目不是安装目录，也不需要包含 CatchTail 的 marketplace 文件。
 
 ## 更新
 
-让 AI 执行：
-
-```text
-更新 CatchTail 插件：通过 Codex 插件/marketplace 更新 catchtail-local，并确认 catchtail@catchtail-local 仍然启用；不要把源码下载到当前项目。
-```
-
-CLI 可用时，对应的 marketplace 命令是：
+通过 Codex 插件系统更新 marketplace：
 
 ```powershell
-codex plugin marketplace upgrade catchtail-local
+codex plugin marketplace upgrade catchtail
+```
+
+更新后在 `/plugins` 确认 `CatchTail` 仍处于启用状态。
+
+如果你曾经按旧文档添加过 `catchtail-local`，先移除旧 marketplace，再添加新的 `catchtail`：
+
+```powershell
+codex plugin marketplace remove catchtail-local
+codex plugin marketplace add https://github.com/youngerstyle/CatchTail
 ```
 
 ## 卸载
 
-让 AI 执行：
+在 `/plugins` 中卸载或禁用 `CatchTail`。如果要移除整个 marketplace：
 
-```text
-卸载并清理 CatchTail 插件：先在当前项目运行 CatchTail 的 purge 清理，移除 CatchTail 写入的项目 hook、AGENTS 块、skill 和 .catchtail 状态；确认项目清理完成后，再从 Codex marketplace 移除 catchtail-local。
+```powershell
+codex plugin marketplace remove catchtail
 ```
 
-AI 不需要让用户手动找路径。它应该先使用已安装的 CatchTail 插件或插件缓存中的卸载辅助完成当前项目清理，再执行 marketplace 移除。清理范围只包括 CatchTail 自己写入的内容：
-
-- `.codex/hooks.json` 中的 CatchTail hook entries
-- `AGENTS.md` 中的 CatchTail 管理块
-- `.agents/skills/catchtail-interactive/`
-- `AGENTS.catchtail.md`
-- 本地 `.catchtail/` 运行状态
-
-最后再移除 marketplace：
+旧文档里的 marketplace 名称是 `catchtail-local`。如果你的环境里还有这个旧入口，也可以移除：
 
 ```powershell
 codex plugin marketplace remove catchtail-local
 ```
 
-卸载流程会保留用户其它 hook，不会清空整个 Codex 配置，也不会删除用户项目。
+标准插件卸载不会删除用户项目。CatchTail 运行时写入当前项目的 `.catchtail/` 状态目录；如果你想清掉历史队列和会话记录，可以删除该目录。早期项目级安装残留只在迁移时需要单独清理。
 
 ## 基本工作流
 
-1. 安装插件：把快速开始里的安装句子原样发给 AI。
+1. 通过 `/plugins` 安装并启用 `CatchTail`。
 2. 在 Codex 中打开目标项目。
 3. 对 Codex 说 `启动 CatchTail 控制台并启动交互式工作流`。
 4. 在本地控制台继续发送消息、附件或上下文提示。
@@ -120,8 +102,6 @@ claim -> handle -> complete -> wait
 .agents/plugins/marketplace.json                    Codex marketplace 入口
 plugins/catchtail/.codex-plugin/plugin.json         插件 manifest
 plugins/catchtail/hooks.json                        hook 声明
-plugins/catchtail/scripts/install.mjs               旧版项目级安装/迁移辅助
-plugins/catchtail/scripts/uninstall.mjs             旧版项目级卸载/清理辅助
 plugins/catchtail/bin/catchtail.js                  CLI 入口
 plugins/catchtail/src/                              runtime、hook、CLI 和控制台
 plugins/catchtail/docs/protocol.md                  协议细节

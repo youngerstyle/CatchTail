@@ -12,9 +12,7 @@
     "catchtail": "./bin/catchtail.js"
   },
   "scripts": {
-    "start": "node ./bin/catchtail.js serve",
-    "install:project": "node ./scripts/install.mjs",
-    "uninstall:project": "node ./scripts/uninstall.mjs"
+    "start": "node ./bin/catchtail.js serve"
   },
   "files": [
     ".codex-plugin/",

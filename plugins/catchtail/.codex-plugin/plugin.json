@@ -17,6 +17,7 @@
     "sidecar",
     "queue"
   ],
+  "skills": "./skills/",
   "hooks": "./hooks.json",
   "interface": {
     "displayName": "CatchTail",
@@ -33,9 +34,9 @@
     "privacyPolicyURL": "https://github.com/youngerstyle/CatchTail/blob/main/PRIVACY.md",
     "termsOfServiceURL": "https://github.com/youngerstyle/CatchTail/blob/main/TERMS.md",
     "defaultPrompt": [
+      "启动 CatchTail 控制台并启动交互式工作流",
       "启动交互式工作流",
-      "启动 小尾巴",
-      "Open CatchTail and keep this session waiting."
+      "启动 小尾巴"
     ],
     "brandColor": "#2563EB",
     "composerIcon": "./assets/catchtail-small.svg",

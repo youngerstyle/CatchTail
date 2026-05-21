@@ -71,12 +71,14 @@ test("plugin manifest has marketplace-facing assets and policy links", () => {
   const manifest = readJson(join(ROOT, ".codex-plugin", "plugin.json"));
   const pkg = readJson(join(ROOT, "package.json"));
   assert.equal(manifest.version, pkg.version);
+  assert.equal(manifest.skills, "./skills/");
   assert.equal(manifest.interface.composerIcon, "./assets/catchtail-small.svg");
   assert.equal(manifest.interface.logo, "./assets/catchtail-app.svg");
   assert.deepEqual(manifest.interface.screenshots, []);
   assert.match(manifest.interface.privacyPolicyURL, /PRIVACY\.md$/);
   assert.match(manifest.interface.termsOfServiceURL, /TERMS\.md$/);
-  assert.equal(manifest.interface.defaultPrompt[0], "启动交互式工作流");
+  assert.equal(manifest.interface.defaultPrompt[0], "启动 CatchTail 控制台并启动交互式工作流");
+  assert.equal(manifest.interface.defaultPrompt[1], "启动交互式工作流");
 });
 
 test("published package includes the repo marketplace entry", () => {
@@ -84,6 +86,7 @@ test("published package includes the repo marketplace entry", () => {
   assert.equal(pkg.files.includes(".agents/"), true);
   assert.equal(pkg.files.includes("plugins/"), true);
   const marketplace = readJson(join(REPO_ROOT, ".agents", "plugins", "marketplace.json"));
+  assert.equal(marketplace.name, "catchtail");
   const entry = marketplace.plugins[0];
   assert.equal(entry.name, "catchtail");
   assert.equal(entry.source.source, "local");
@@ -95,7 +98,11 @@ test("published package includes the repo marketplace entry", () => {
   const sourceRoot = resolve(REPO_ROOT, entry.source.path);
   const sourceManifest = readJson(join(sourceRoot, ".codex-plugin", "plugin.json"));
   assert.equal(sourceManifest.name, entry.name);
-  assert.equal(Object.hasOwn(sourceManifest, "skills"), false);
+  assert.equal(sourceManifest.skills, "./skills/");
+
+  const bundledSkill = readFileSync(join(sourceRoot, "skills", "catchtail-interactive", "SKILL.md"), "utf8");
+  assert.match(bundledSkill, /\.\.\/\.\.\/bin\/catchtail\.js/);
+  assert.doesNotMatch(bundledSkill, /node "\.\/bin\/catchtail\.js"/);
 });
 
 test("installer quotes generated CLI commands when plugin path contains spaces", () => {
@@ -150,8 +157,8 @@ test("CLI init accepts an explicit target path and preserves existing hooks", as
   assert.match(skill, /上下文提示：/);
 });
 
-test("CLI serve refreshes stale project protocol files", async () => {
-  const project = tempProject("serve-sync");
+test("CLI serve does not write project-level install artifacts", async () => {
+  const project = tempProject("serve-no-install");
   await mkdir(join(project, ".codex"), { recursive: true });
   writeFileSync(
     join(project, "AGENTS.md"),
@@ -167,12 +174,12 @@ test("CLI serve refreshes stale project protocol files", async () => {
   assert.equal(result.exitCode, 0, result.stderr);
 
   const agents = readFileSync(join(project, "AGENTS.md"), "utf8");
-  const skill = readFileSync(join(project, ".agents", "skills", "catchtail-interactive", "SKILL.md"), "utf8");
-  assert.doesNotMatch(agents, /再用 fenced `text` 代码块包裹正文/);
-  assert.match(agents, /不要用 fenced code block/);
-  assert.match(skill, /不要用 fenced code block/);
-  assert.match(agents, /附件路径：/);
-  assert.match(skill, /附件路径：/);
+  assert.match(agents, /再用 fenced `text` 代码块包裹正文/);
+  assert.equal(existsSync(join(project, ".agents")), false);
+  assert.equal(existsSync(join(project, "AGENTS.catchtail.md")), false);
+  assert.equal(existsSync(join(project, ".catchtail", "sessions")), true);
+
+  assert.equal(existsSync(join(project, ".codex", "hooks.json")), false);
 });
 
 test("uninstall accepts remove flag before the project path", () => {

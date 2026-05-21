@@ -12,9 +12,7 @@
     "catchtail": "./plugins/catchtail/bin/catchtail.js"
   },
   "scripts": {
-    "start": "node ./plugins/catchtail/bin/catchtail.js serve",
-    "install:project": "node ./plugins/catchtail/scripts/install.mjs",
-    "uninstall:project": "node ./plugins/catchtail/scripts/uninstall.mjs"
+    "start": "node ./plugins/catchtail/bin/catchtail.js serve"
   },
   "files": [
     ".agents/",

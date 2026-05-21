@@ -94,7 +94,7 @@ function cliPathForProject(root) {
 }
 
 async function serve(root, port, { stayOpen = true } = {}) {
-  syncProjectInstall(root);
+  mkdirSync(join(root, ".catchtail", "sessions"), { recursive: true });
   const server = createServer({ root });
   await new Promise((resolve, reject) => {
     server.once("error", reject);
