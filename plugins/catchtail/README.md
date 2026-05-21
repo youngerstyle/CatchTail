@@ -22,13 +22,13 @@ codex plugin marketplace add https://github.com/youngerstyle/CatchTail
 启动 CatchTail 控制台并启动交互式工作流
 ```
 
-AI 会启动本地控制台服务，并告诉你实际地址，通常是：
+AI 会为当前 Codex session 启动独立的本地控制台服务，并告诉你实际地址，例如：
 
 ```text
-http://127.0.0.1:3787
+http://127.0.0.1:<port>
 ```
 
-控制台服务启动后，你就可以在本地控制台继续发送消息、上传文件、补充上下文，或者停止当前交互队列。
+控制台服务启动后，你就可以在该 session 的本地控制台继续发送消息、上传文件、补充上下文，或者停止当前交互队列。
 
 ## 安装
 
@@ -127,7 +127,7 @@ POST /api/queue/cancel?sessionId=<id>
 POST /api/queue/complete?sessionId=<id>
 ```
 
-`sessionId` 必须显式提供。队列接口包含 CORS headers。文件预览和文件打开接口只在本地 sidecar 内可用，并且只接受 `.catchtail/uploads/` 下的路径。
+`sessionId` 必须显式提供。队列接口是普通本地 HTTP API，可被本地代码、CLI、脚本或 agent 进程直接调用；它不提供浏览器跨域 CORS。文件预览和文件打开接口只在本地 sidecar 内可用，并且只接受 `.catchtail/uploads/` 下的路径。
 
 ## 发布前验证
 

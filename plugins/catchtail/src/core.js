@@ -20,7 +20,8 @@ const DEFAULT_STATE = {
     milestone: "incomplete",
     startedAt: null,
     lastTurnId: null
-  }
+  },
+  sidecar: null
 };
 
 export class CatchTailRuntime {
@@ -113,6 +114,16 @@ export class CatchTailRuntime {
       state.interactive.milestone = value;
     });
     this.appendHistory({ type: "milestone", value });
+  }
+
+  setSidecar(info) {
+    this.updateState((state) => {
+      state.sidecar = {
+        ...info,
+        updatedAt: new Date().toISOString()
+      };
+    });
+    this.appendHistory({ type: "sidecar", sidecar: info });
   }
 
   enqueueMessage({ body, kind = "message", files = [], refs = [] }) {
@@ -223,7 +234,7 @@ export class CatchTailRuntime {
       return {
         hookSpecificOutput: {
           hookEventName: "UserPromptSubmit",
-          additionalContext: interactiveContext()
+          additionalContext: interactiveContext(this.sessionId)
         }
       };
     }
@@ -262,11 +273,12 @@ function isInteractiveStartPrompt(prompt) {
     || compact.includes("\u542f\u52a8\u5c0f\u5c3e\u5df4");
 }
 
-export function interactiveContext() {
-  const command = cliCommand();
+export function interactiveContext(sessionId = "default") {
+  const command = cliCommand(sessionId);
   return [
     "CatchTail interactive mode is active.",
     "Runtime is lightweight: queue.json contains only unclaimed user input; session.jsonl contains history.",
+    `Start this session's sidecar in the background with \`${command} serve 0\`; keep it running, capture the printed CatchTail Console URL, then continue this turn.`,
     `When prompted by CatchTail, run \`${command} claim\`, handle that message, then run \`${command} complete <id> <short response>\`.`,
     "After claiming a message, use this exact display format: `**处理队列消息：**`, blank line, `---`, blank line, message body, then `附件路径：` with one `- <absolute path>` line per file or `无`, then `上下文提示：` with refs or `无`, blank line, final `---`. Do not shorten the attachment heading to `附件：`, do not omit headings, and do not wrap the body in fenced code or blockquote syntax.",
     `After complete, run \`${command} wait\` while milestone is incomplete; do not send final.`,
@@ -275,11 +287,11 @@ export function interactiveContext() {
   ].join("\n");
 }
 
-function cliCommand() {
+function cliCommand(sessionId = "default") {
   const target = join(PROJECT_ROOT, "bin", "catchtail.js");
   const relativePath = relative(process.cwd(), target);
   const path = relativePath && !isAbsolute(relativePath) ? relativePath : target;
-  return `node ${JSON.stringify(normalizeCommandPath(path))}`;
+  return `node ${JSON.stringify(normalizeCommandPath(path))} --session ${JSON.stringify(sessionId)}`;
 }
 
 function normalizeCommandPath(path) {

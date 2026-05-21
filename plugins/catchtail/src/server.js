@@ -6,21 +6,18 @@ import { basename, dirname, extname, join, relative, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import { CatchTailRuntime } from "./core.js";
 
-export function createServer({ root = process.cwd(), openFile = openPathWithDefaultApp } = {}) {
+export function createServer({ root = process.cwd(), defaultSessionId = "default", openFile = openPathWithDefaultApp } = {}) {
   const waiters = new Set();
   return createHttpServer(async (request, response) => {
     try {
       const url = new URL(request.url, "http://127.0.0.1");
 
       if (request.method === "GET" && url.pathname === "/") {
-        return sendHtml(response, renderConsole());
-      }
-      if (request.method === "OPTIONS" && url.pathname.startsWith("/api/queue")) {
-        return sendCorsPreflight(response);
+        return sendHtml(response, renderConsole(defaultSessionId));
       }
       if (request.method === "GET" && url.pathname === "/api/queue") {
         const runtime = queueRuntimeFor(root, url);
-        return sendJson(response, runtime.getQueue(), { cors: true });
+        return sendJson(response, runtime.getQueue());
       }
       if (request.method === "POST" && url.pathname === "/api/queue") {
         const runtime = queueRuntimeFor(root, url);
@@ -33,7 +30,7 @@ export function createServer({ root = process.cwd(), openFile = openPathWithDefa
           refs
         });
         notifyWaiters(waiters, { ok: true, reason: "message", id, sessionId: runtime.sessionId });
-        return sendJson(response, { ok: true, id, sessionId: runtime.sessionId }, { cors: true });
+        return sendJson(response, { ok: true, id, sessionId: runtime.sessionId });
       }
       if (request.method === "POST" && url.pathname === "/api/queue/claim") {
         const runtime = queueRuntimeFor(root, url);
@@ -41,52 +38,52 @@ export function createServer({ root = process.cwd(), openFile = openPathWithDefa
           ok: true,
           item: runtime.claimNextMessage(),
           sessionId: runtime.sessionId
-        }, { cors: true });
+        });
       }
       if (request.method === "POST" && url.pathname === "/api/queue/cancel") {
         const runtime = queueRuntimeFor(root, url);
         const body = await readJson(request);
         const id = String(body.id ?? "");
-        if (!id) return sendJson(response, { ok: false, error: "Missing message id" }, { status: 400, cors: true });
+        if (!id) return sendJson(response, { ok: false, error: "Missing message id" }, { status: 400 });
         const item = runtime.cancelMessage(id, String(body.reason ?? ""));
-        if (!item) return sendJson(response, { ok: false, error: "Queue item not found" }, { status: 404, cors: true });
+        if (!item) return sendJson(response, { ok: false, error: "Queue item not found" }, { status: 404 });
         notifyWaiters(waiters, { ok: true, reason: "cancel", id, sessionId: runtime.sessionId });
-        return sendJson(response, { ok: true, item, sessionId: runtime.sessionId }, { cors: true });
+        return sendJson(response, { ok: true, item, sessionId: runtime.sessionId });
       }
       if (request.method === "POST" && url.pathname === "/api/queue/update") {
         const runtime = queueRuntimeFor(root, url);
         const body = await readJson(request);
         const id = String(body.id ?? "");
-        if (!id) return sendJson(response, { ok: false, error: "Missing message id" }, { status: 400, cors: true });
+        if (!id) return sendJson(response, { ok: false, error: "Missing message id" }, { status: 400 });
         const item = runtime.updateMessage(id, {
           body: String(body.body ?? ""),
           files: normalizeFilePaths(body.files),
           refs: normalizeRefs(body.refs)
         });
-        if (!item) return sendJson(response, { ok: false, error: "Queue item not found" }, { status: 404, cors: true });
+        if (!item) return sendJson(response, { ok: false, error: "Queue item not found" }, { status: 404 });
         notifyWaiters(waiters, { ok: true, reason: "update", id, sessionId: runtime.sessionId });
-        return sendJson(response, { ok: true, item, sessionId: runtime.sessionId }, { cors: true });
+        return sendJson(response, { ok: true, item, sessionId: runtime.sessionId });
       }
       if (request.method === "POST" && url.pathname === "/api/queue/editing") {
         const runtime = queueRuntimeFor(root, url);
         const body = await readJson(request);
         const id = String(body.id ?? "");
-        if (!id) return sendJson(response, { ok: false, error: "Missing message id" }, { status: 400, cors: true });
+        if (!id) return sendJson(response, { ok: false, error: "Missing message id" }, { status: 400 });
         const item = runtime.setMessageEditing(id, Boolean(body.editing));
-        if (!item) return sendJson(response, { ok: false, error: "Queue item not found" }, { status: 404, cors: true });
+        if (!item) return sendJson(response, { ok: false, error: "Queue item not found" }, { status: 404 });
         if (!item.editing) notifyWaiters(waiters, { ok: true, reason: "editing", id, sessionId: runtime.sessionId });
-        return sendJson(response, { ok: true, item, sessionId: runtime.sessionId }, { cors: true });
+        return sendJson(response, { ok: true, item, sessionId: runtime.sessionId });
       }
       if (request.method === "POST" && url.pathname === "/api/queue/complete") {
         const runtime = queueRuntimeFor(root, url);
         const body = await readJson(request);
         const id = String(body.id ?? "");
-        if (!id) return sendJson(response, { ok: false, error: "Missing message id" }, { status: 400, cors: true });
+        if (!id) return sendJson(response, { ok: false, error: "Missing message id" }, { status: 400 });
         runtime.completeMessage(id, String(body.response ?? ""));
-        return sendJson(response, { ok: true, id, sessionId: runtime.sessionId }, { cors: true });
+        return sendJson(response, { ok: true, id, sessionId: runtime.sessionId });
       }
 
-      const runtime = runtimeFor(root, url);
+      const runtime = runtimeFor(root, url, defaultSessionId);
 
       if (request.method === "GET" && url.pathname === "/api/state") {
         return sendJson(response, withSession(runtime, runtime.getState()));
@@ -164,10 +161,10 @@ export function createServer({ root = process.cwd(), openFile = openPathWithDefa
   });
 }
 
-function runtimeFor(root, url) {
+function runtimeFor(root, url, defaultSessionId = "default") {
   return new CatchTailRuntime({
     root,
-    sessionId: url.searchParams.get("sessionId") ?? latestActiveSessionId(root) ?? "default"
+    sessionId: url.searchParams.get("sessionId") ?? defaultSessionId ?? latestActiveSessionId(root) ?? "default"
   });
 }
 
@@ -235,23 +232,9 @@ function clampTimeout(value) {
 function sendJson(response, payload, options = {}) {
   response.writeHead(options.status ?? 200, {
     "content-type": "application/json; charset=utf-8",
-    "cache-control": "no-store",
-    ...(options.cors ? corsHeaders() : {})
+    "cache-control": "no-store"
   });
   response.end(`${JSON.stringify(payload)}\n`);
-}
-
-function sendCorsPreflight(response) {
-  response.writeHead(204, corsHeaders());
-  response.end();
-}
-
-function corsHeaders() {
-  return {
-    "access-control-allow-origin": "*",
-    "access-control-allow-methods": "GET, POST, OPTIONS",
-    "access-control-allow-headers": "content-type"
-  };
 }
 
 function sendHtml(response, html) {
@@ -579,7 +562,8 @@ function stripBom(value) {
   return value.replace(/^\uFEFF/, "");
 }
 
-function renderConsole() {
+function renderConsole(defaultSessionId = "default") {
+  const initialSessionId = JSON.stringify(defaultSessionId);
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -1382,7 +1366,7 @@ function renderConsole() {
     </button>
   </div>
   <script>
-    const state = { files: [], refs: [], queueItems: [], sessionId: 'default', draftLoaded: false };
+    const state = { files: [], refs: [], queueItems: [], sessionId: ${initialSessionId}, draftLoaded: false };
     const slash = { entries: [], visible: [], active: 0, forced: false, filterType: null };
     const expandedQueueItems = new Set();
     let editingQueueItemId = null;

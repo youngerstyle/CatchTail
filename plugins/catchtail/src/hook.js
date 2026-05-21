@@ -57,8 +57,11 @@ function shouldWaitBeforeStop(runtime, payload) {
   return true;
 }
 
-async function waitForSidecarActivity({ env, sessionId, timeoutMs }) {
-  const url = env.CATCHTAIL_WAIT_URL ?? "http://127.0.0.1:3787/api/wait";
+async function waitForSidecarActivity({ root, env, sessionId, timeoutMs }) {
+  const runtime = new CatchTailRuntime({ root, sessionId });
+  const url = env.CATCHTAIL_WAIT_URL
+    ?? runtime.getState().sidecar?.waitUrl
+    ?? "http://127.0.0.1:3787/api/wait";
   const waitUrl = new URL(url);
   waitUrl.searchParams.set("sessionId", sessionId);
   waitUrl.searchParams.set("timeoutMs", String(Math.max(1, timeoutMs)));

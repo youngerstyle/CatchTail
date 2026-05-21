@@ -102,6 +102,8 @@ test("published package includes the repo marketplace entry", () => {
 
   const bundledSkill = readFileSync(join(sourceRoot, "skills", "catchtail-interactive", "SKILL.md"), "utf8");
   assert.match(bundledSkill, /\.\.\/\.\.\/bin\/catchtail\.js/);
+  assert.match(bundledSkill, /后台启动/);
+  assert.match(bundledSkill, /不要以前台常驻命令阻塞后续流程/);
   assert.doesNotMatch(bundledSkill, /node "\.\/bin\/catchtail\.js"/);
 });
 
@@ -170,7 +172,7 @@ test("CLI serve does not write project-level install artifacts", async () => {
     ].join("\n")
   );
 
-  const result = await runCli(["serve", "0"], { root: project, stayOpen: false });
+  const result = await runCli(["--session", "session-serve", "serve", "0"], { root: project, stayOpen: false });
   assert.equal(result.exitCode, 0, result.stderr);
 
   const agents = readFileSync(join(project, "AGENTS.md"), "utf8");
@@ -178,8 +180,27 @@ test("CLI serve does not write project-level install artifacts", async () => {
   assert.equal(existsSync(join(project, ".agents")), false);
   assert.equal(existsSync(join(project, "AGENTS.catchtail.md")), false);
   assert.equal(existsSync(join(project, ".catchtail", "sessions")), true);
+  const state = readJson(join(project, ".catchtail", "sessions", "session-serve", "state.json"));
+  assert.match(state.sidecar.consoleUrl, /^http:\/\/127\.0\.0\.1:\d+$/);
+  assert.equal(state.sidecar.waitUrl, `${state.sidecar.consoleUrl}/api/wait`);
 
   assert.equal(existsSync(join(project, ".codex", "hooks.json")), false);
+});
+
+test("CLI serve records independent sidecars per session", async () => {
+  const project = tempProject("serve-sessions");
+
+  const first = await runCli(["--session", "session-one", "serve", "0"], { root: project, stayOpen: false });
+  assert.equal(first.exitCode, 0, first.stderr);
+  const second = await runCli(["--session", "session-two", "serve", "0"], { root: project, stayOpen: false });
+  assert.equal(second.exitCode, 0, second.stderr);
+
+  const one = readJson(join(project, ".catchtail", "sessions", "session-one", "state.json"));
+  const two = readJson(join(project, ".catchtail", "sessions", "session-two", "state.json"));
+  assert.match(one.sidecar.consoleUrl, /^http:\/\/127\.0\.0\.1:\d+$/);
+  assert.match(two.sidecar.consoleUrl, /^http:\/\/127\.0\.0\.1:\d+$/);
+  assert.equal(one.sidecar.waitUrl, `${one.sidecar.consoleUrl}/api/wait`);
+  assert.equal(two.sidecar.waitUrl, `${two.sidecar.consoleUrl}/api/wait`);
 });
 
 test("uninstall accepts remove flag before the project path", () => {
@@ -276,6 +297,9 @@ test("UserPromptSubmit enables interactive mode and returns CatchTail context", 
   const output = JSON.parse(result.stdout);
   assert.equal(output.hookSpecificOutput.hookEventName, "UserPromptSubmit");
   assert.match(output.hookSpecificOutput.additionalContext, /claim/);
+  assert.match(output.hookSpecificOutput.additionalContext, /--session "session-a"/);
+  assert.match(output.hookSpecificOutput.additionalContext, /serve 0/);
+  assert.match(output.hookSpecificOutput.additionalContext, /background/);
 
   const state = readJson(join(project, ".catchtail", "sessions", "session-a", "state.json"));
   assert.equal(state.interactive.enabled, true);
@@ -364,13 +388,15 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
           { type: "plugin", value: "browser" }
         ]
       })
-    }).then((response) => response.json());
-    assert.equal(enqueue.ok, true);
+    });
+    assert.equal(enqueue.headers.has("access-control-allow-origin"), false);
+    const enqueueBody = await enqueue.json();
+    assert.equal(enqueueBody.ok, true);
 
     const claim = await fetch(`${base}/api/queue/claim?sessionId=session-b`, {
       method: "POST"
     }).then((response) => response.json());
-    assert.equal(claim.item.id, enqueue.id);
+    assert.equal(claim.item.id, enqueueBody.id);
     assert.match(claim.item.body, /^\[\$catchtail-interactive\]\(catchtail-interactive\) \[\$Browser\]\(.+plugin\.json\) hello$/);
     assert.equal(claim.item.refs[0].type, "skill");
     assert.equal(claim.item.refs[0].value, "catchtail-interactive");
@@ -382,7 +408,7 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
     const complete = await fetch(`${base}/api/queue/complete?sessionId=session-b`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ id: enqueue.id, response: "done" })
+      body: JSON.stringify({ id: enqueueBody.id, response: "done" })
     }).then((response) => response.json());
     assert.equal(complete.ok, true);
 

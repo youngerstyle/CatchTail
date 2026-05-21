@@ -18,7 +18,7 @@ export async function runCli(
   const sessionId = parsed.sessionId;
 
   if (command === "init") return initProject(resolve(parsed.argv[1] ?? root));
-  if (command === "serve") return serve(root, Number(parsed.argv[1] ?? 3787), { stayOpen });
+  if (command === "serve") return serve(root, Number(parsed.argv[1] ?? 0), { stayOpen, sessionId });
   if (command === "status") return status(root, sessionId);
   if (command === "wait") {
     return waitForSidecar(root, sessionId, parsed.argv[1], fetchImpl);
@@ -93,14 +93,22 @@ function cliPathForProject(root) {
   return commandPathForProject(root, join(PROJECT_ROOT, "bin", "catchtail.js"));
 }
 
-async function serve(root, port, { stayOpen = true } = {}) {
-  mkdirSync(join(root, ".catchtail", "sessions"), { recursive: true });
-  const server = createServer({ root });
+async function serve(root, port, { stayOpen = true, sessionId = "default" } = {}) {
+  const runtime = new CatchTailRuntime({ root, sessionId });
+  const server = createServer({ root, defaultSessionId: runtime.sessionId });
   await new Promise((resolve, reject) => {
     server.once("error", reject);
     server.listen(port, "127.0.0.1", () => {
       server.off("error", reject);
-      process.stdout.write(`CatchTail Console: http://127.0.0.1:${server.address().port}\n`);
+      const address = server.address();
+      const consoleUrl = `http://127.0.0.1:${address.port}`;
+      runtime.setSidecar({
+        consoleUrl,
+        waitUrl: `${consoleUrl}/api/wait`,
+        port: address.port
+      });
+      process.stdout.write(`CatchTail Console: ${consoleUrl}\n`);
+      process.stdout.write(`CatchTail Session: ${runtime.sessionId}\n`);
       resolve();
     });
   });
@@ -143,7 +151,7 @@ async function waitForSidecar(root, sessionId, timeoutArg, fetchImpl) {
   let lastError = null;
   while (Date.now() < deadline) {
     const remaining = Math.max(1, deadline - Date.now());
-    const waitUrl = new URL("http://127.0.0.1:3787/api/wait");
+    const waitUrl = new URL(runtime.getState().sidecar?.waitUrl ?? "http://127.0.0.1:3787/api/wait");
     waitUrl.searchParams.set("sessionId", sessionId);
     waitUrl.searchParams.set("timeoutMs", String(Math.min(remaining, 240000)));
     try {
@@ -294,7 +302,7 @@ function helpText() {
 Commands:
   --session <id>     Select a Codex session id (default: default)
   init               Create Codex hook config and protocol files
-  serve [port]       Start the local web console
+  serve [port]       Start this session's local web console (default port: 0)
   status             Print state and queue for a session
   wait [timeoutMs]   Long-poll the local sidecar for a session event
   message <text>     Queue a user message
