@@ -175,8 +175,13 @@ npm pack --dry-run
 Run:
 
 ```powershell
-node C:\path\to\CatchTail\scripts\uninstall.mjs C:\path\to\your-project --remove-agents-block
+node C:\path\to\CatchTail\scripts\uninstall.mjs C:\path\to\your-project --purge
 ```
+
+Use `--remove-agents-block` instead when you only want to remove the managed
+CatchTail block from `AGENTS.md`. Use `--purge` to also remove CatchTail hook
+entries, `.agents/skills/catchtail-interactive/`, `AGENTS.catchtail.md`, and
+local `.catchtail/` state.
 
 ## Limits
 

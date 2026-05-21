@@ -1,5 +1,5 @@
 import { once } from "node:events";
-import { cpSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -194,6 +194,60 @@ test("uninstall accepts remove flag before the project path", () => {
     project
   ], { encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr);
+
+  const agents = readFileSync(join(project, "AGENTS.md"), "utf8");
+  assert.doesNotMatch(agents, /CatchTail:START/);
+  assert.match(agents, /before/);
+  assert.match(agents, /after/);
+});
+
+test("uninstall purge removes CatchTail project artifacts and preserves unrelated hooks", () => {
+  const project = tempProject("uninstall-purge");
+  mkdirSync(join(project, ".codex"), { recursive: true });
+  mkdirSync(join(project, ".agents", "skills", "catchtail-interactive"), { recursive: true });
+  mkdirSync(join(project, ".catchtail", "sessions", "default"), { recursive: true });
+  writeFileSync(
+    join(project, ".codex", "hooks.json"),
+    JSON.stringify({
+      hooks: {
+        UserPromptSubmit: [
+          { hooks: [{ type: "command", command: "node keep-user-prompt.js", timeout: 12 }] },
+          { hooks: [{ type: "command", command: "node old/catchtail-hook.js", timeout: 1 }] }
+        ],
+        Stop: [{ hooks: [{ type: "command", command: "node old/catchtail-hook.js", timeout: 1 }] }],
+        PostToolUse: [{ hooks: [{ type: "command", command: "node keep-post.js" }] }]
+      }
+    })
+  );
+  writeFileSync(join(project, ".agents", "skills", "catchtail-interactive", "SKILL.md"), "managed\n");
+  writeFileSync(join(project, ".catchtail", "sessions", "default", "state.json"), "{}\n");
+  writeFileSync(join(project, "AGENTS.catchtail.md"), "managed\n");
+  writeFileSync(
+    join(project, "AGENTS.md"),
+    [
+      "before",
+      "<!-- CatchTail:START -->",
+      "managed",
+      "<!-- CatchTail:END -->",
+      "after"
+    ].join("\n") + "\n"
+  );
+
+  const result = spawnSync(process.execPath, [
+    join(ROOT, "scripts", "uninstall.mjs"),
+    "--purge",
+    project
+  ], { encoding: "utf8" });
+  assert.equal(result.status, 0, result.stderr);
+
+  const hooks = readJson(join(project, ".codex", "hooks.json")).hooks;
+  const serialized = JSON.stringify(hooks);
+  assert.match(serialized, /keep-user-prompt\.js/);
+  assert.match(serialized, /keep-post\.js/);
+  assert.doesNotMatch(serialized, /catchtail-hook\.js/);
+  assert.equal(existsSync(join(project, ".agents", "skills", "catchtail-interactive")), false);
+  assert.equal(existsSync(join(project, ".catchtail")), false);
+  assert.equal(existsSync(join(project, "AGENTS.catchtail.md")), false);
 
   const agents = readFileSync(join(project, "AGENTS.md"), "utf8");
   assert.doesNotMatch(agents, /CatchTail:START/);
