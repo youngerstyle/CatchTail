@@ -1,118 +1,113 @@
 # CatchTail
 
-CatchTail lets you keep talking to a long-running Codex session while the agent
-is still working.
+CatchTail 让你在 Codex 长时间执行任务时，仍然可以继续给它发送消息、文件和上下文提示。
 
-It does not patch Codex. It adds a local sidecar: a queue, session history,
-file uploads, a browser console, and a small hook protocol that keeps the loop
-alive until you explicitly stop it.
+它不会修改 Codex 本体。CatchTail 只是在本地增加一个 sidecar：队列、会话历史、文件上传、本地网页控制台，以及一组 Codex hook 协议，让当前回合在你明确停止前保持可交互。
 
-## Quickstart
+## 快速开始
 
-1. Open the target project or folder in Codex.
-2. Tell Codex:
+1. 在 Codex 中打开你要工作的目标项目或文件夹。
+2. 对 Codex 说：
 
    ```text
    安装并初始化 https://github.com/youngerstyle/CatchTail
    ```
 
-3. If Codex asks whether to trust the installed hooks, review the hook command
-   and choose trust. CatchTail uses Codex hooks to keep the session alive, and
-   that trust step is intentionally controlled by Codex.
-
-4. Open the local console:
+3. 如果 Codex 提示是否信任 hook，请先查看命令，再选择信任。CatchTail 依赖 Codex hook 维持交互循环，这一步由 Codex 的安全机制控制，CatchTail 不会绕过它。
+4. 打开本地控制台：
 
    ```text
    http://127.0.0.1:3787
    ```
 
-5. Start the workflow:
+5. 对 Codex 说：
 
    ```text
    启动交互式工作流
    ```
 
-After that, send follow-up messages, files, context hints, or stop requests through the local
-console while Codex keeps working.
+之后你就可以在本地控制台继续发送消息、上传文件、补充上下文，或者停止当前交互队列。
 
-## How It Works
+## 安装
 
-CatchTail treats the Codex agent loop as a black box and adds an interaction
-surface around it.
-
-Installation is a one-time project setup step, not a CatchTail runtime skill.
-When you ask Codex to install and initialize the GitHub repository, it fetches
-this project, runs `plugins/catchtail/scripts/install.mjs` against the current target project, and
-starts the local console. The installer writes the project hook config, a
-project-local runtime skill, and a managed `AGENTS.md` block.
-
-The core loop is:
-
-```text
-claim -> handle -> complete -> wait
-```
-
-The `Stop` hook is the fallback boundary. If the queue is still active, it keeps
-Codex in the loop instead of treating the turn as done.
-
-## Installation
-
-### Codex App / Codex CLI
-
-Open the target project or folder in Codex, then tell Codex:
+普通用户不需要手动复制本地路径，也不需要自己拼命令。打开目标项目后，直接对 Codex 说：
 
 ```text
 安装并初始化 https://github.com/youngerstyle/CatchTail
 ```
 
-This tells Codex both where CatchTail is and which open project should receive
-the CatchTail hook/runtime setup. No CatchTail skill is required before this
-step; installation is the precondition for the runtime workflow.
+Codex 应该负责完成这些事：
 
-Codex should clone or update CatchTail in a durable local location, such as
-`~/.codex/catchtail`, before running the installer. Do not use a temporary
-directory: the generated hooks reference the local CatchTail checkout.
+1. 把 CatchTail 克隆或更新到一个持久的本地插件目录。不要使用临时目录，因为生成的 hook 会引用这个本地 checkout。
+2. 对当前打开的目标项目运行 CatchTail 安装器。
+3. 启动本地控制台。
+4. 告诉用户控制台地址，并提醒用户在 Codex 弹出 hook 信任提示时确认。
 
-The installer will set up the project hooks and start the local console. If
-Codex prompts you to trust hooks, approve it after reviewing the command.
-CatchTail cannot safely bypass that prompt because it is part of Codex's hook
-security model.
+安装是一次性的项目设置步骤，不是 CatchTail 运行时 skill。安装完成后，目标项目会得到 hook 配置、项目内运行时 skill，以及一段由 CatchTail 管理的 `AGENTS.md` 指令块。
 
-### Manual Development Install
+## 更新
 
-Use this when your Codex environment cannot install plugins directly from a
-GitHub repository URL, or when developing CatchTail itself:
-
-```powershell
-git clone https://github.com/youngerstyle/CatchTail.git $env:USERPROFILE\.codex\catchtail
-cd C:\path\to\your-project
-node $env:USERPROFILE\.codex\catchtail\plugins\catchtail\scripts\install.mjs .
-node $env:USERPROFILE\.codex\catchtail\plugins\catchtail\bin\catchtail.js serve
-```
-
-## The Basic Workflow
-
-1. Open the target project or folder in Codex.
-2. Ask Codex `安装并初始化 https://github.com/youngerstyle/CatchTail`.
-3. Tell Codex `启动交互式工作流`.
-4. Use the console to send follow-up messages, attachments, or context hints.
-5. Codex claims queued input, handles it, completes it, and waits again.
-6. Stop the queue from the console when you want the workflow to end.
-
-## What's Inside
+在目标项目里直接对 Codex 说：
 
 ```text
-plugins/catchtail/.codex-plugin/plugin.json        Plugin manifest
-plugins/catchtail/hooks.json                       Hook declaration
-plugins/catchtail/skills/catchtail-interactive/    Runtime workflow skill template
-plugins/catchtail/scripts/install.mjs              Project installer
-plugins/catchtail/scripts/uninstall.mjs            Managed-block cleanup helper
-plugins/catchtail/bin/catchtail.js                 CLI entrypoint
-plugins/catchtail/src/                             Runtime, hook, CLI, and console
-plugins/catchtail/docs/protocol.md                 Protocol details
+更新 CatchTail
 ```
 
-Runtime data is written to the target project:
+Codex 应该更新持久本地 checkout，重新对当前项目运行安装器，并重启本地控制台。更新后重新运行安装器很重要，因为它会刷新 `AGENTS.md` 管理块、项目 skill 和 hook 配置，让已有项目拿到新的协议修复。
+
+## 卸载
+
+在目标项目里直接对 Codex 说：
+
+```text
+卸载 CatchTail
+```
+
+Codex 应该对当前项目运行 CatchTail 的 purge 卸载流程。purge 会移除 CatchTail 自己写入的内容，包括：
+
+- `.codex/hooks.json` 中的 CatchTail hook entries
+- `AGENTS.md` 中的 CatchTail 管理块
+- `.agents/skills/catchtail-interactive/`
+- `AGENTS.catchtail.md`
+- 本地 `.catchtail/` 运行状态
+
+卸载流程会保留用户其它 hook，不会清空整个 Codex 配置。
+
+## 基本工作流
+
+1. 在 Codex 中打开目标项目。
+2. 对 Codex 说 `安装并初始化 https://github.com/youngerstyle/CatchTail`。
+3. 对 Codex 说 `启动交互式工作流`。
+4. 在本地控制台继续发送消息、附件或上下文提示。
+5. Codex 领取队列消息，处理后标记完成，然后继续等待下一条消息。
+6. 当你希望交互结束时，在控制台停止队列。
+
+## 工作原理
+
+CatchTail 把 Codex agent loop 当作黑盒，只在 Codex 暴露的生命周期点上增加本地交互层。
+
+核心循环是：
+
+```text
+claim -> handle -> complete -> wait
+```
+
+`UserPromptSubmit` hook 负责启动交互模式并注入协议上下文。`Stop` hook 是兜底边界：如果队列还没有结束，它会让 Codex 继续留在循环里，而不是把当前回合当作已经结束。
+
+## 目录结构
+
+```text
+plugins/catchtail/.codex-plugin/plugin.json        插件 manifest
+plugins/catchtail/hooks.json                       hook 声明
+plugins/catchtail/skills/catchtail-interactive/    运行时 workflow skill 模板
+plugins/catchtail/scripts/install.mjs              项目安装器
+plugins/catchtail/scripts/uninstall.mjs            项目卸载辅助
+plugins/catchtail/bin/catchtail.js                 CLI 入口
+plugins/catchtail/src/                             runtime、hook、CLI 和控制台
+plugins/catchtail/docs/protocol.md                 协议细节
+```
+
+运行时数据会写入目标项目：
 
 ```text
 .catchtail/sessions/<session_id>/state.json
@@ -121,9 +116,9 @@ Runtime data is written to the target project:
 .catchtail/uploads/<session_id>/
 ```
 
-## Queue API
+## 队列 API
 
-Third-party tools can talk to CatchTail without automating the browser UI:
+第三方工具可以直接调用 CatchTail 的本地队列 API，不需要自动化浏览器界面：
 
 ```text
 GET  /api/queue?sessionId=<id>
@@ -133,62 +128,23 @@ POST /api/queue/cancel?sessionId=<id>
 POST /api/queue/complete?sessionId=<id>
 ```
 
-`sessionId` is required. Queue endpoints include CORS headers. File preview and
-file-open endpoints stay local to the sidecar and only accept paths inside
-`.catchtail/uploads/`.
+`sessionId` 必须显式提供。队列接口包含 CORS headers。文件预览和文件打开接口只在本地 sidecar 内可用，并且只接受 `.catchtail/uploads/` 下的路径。
 
-## Updating
+## 发布前验证
 
-Update CatchTail through your Codex plugin UI when installed from the GitHub
-repository URL. For manual development installs, pull the latest plugin code and
-rerun the installer:
-
-```powershell
-cd C:\path\to\CatchTail
-git pull
-node .\plugins\catchtail\scripts\install.mjs C:\path\to\your-project
-```
-
-For users already on `0.1.17` or older, update to `0.1.18` or newer and restart the
-console from the target project:
-
-```powershell
-cd C:\path\to\your-project
-node $env:USERPROFILE\.codex\catchtail\plugins\catchtail\bin\catchtail.js serve
-```
-
-Starting `serve` refreshes the managed CatchTail block in `AGENTS.md`, the
-project skill, and the hook config, so existing projects pick up protocol fixes
-without manual file edits.
-
-## Verification
-
-Before publishing or changing the hook/runtime protocol, run:
+修改 hook 或 runtime 协议后，发布前运行：
 
 ```powershell
 node --test
 npm pack --dry-run
 ```
 
-## Uninstall
+## 限制
 
-Run:
+- CatchTail 是本地 sidecar，不是 Codex 核心循环补丁。
+- Codex 仍然控制权限、sandbox 和工具审批。
+- 如果当前 Codex 环境完全不能运行 hook，CatchTail 就无法重新进入 Codex。
 
-```powershell
-node C:\path\to\CatchTail\plugins\catchtail\scripts\uninstall.mjs C:\path\to\your-project --purge
-```
-
-Use `--remove-agents-block` instead when you only want to remove the managed
-CatchTail block from `AGENTS.md`. Use `--purge` to also remove CatchTail hook
-entries, `.agents/skills/catchtail-interactive/`, `AGENTS.catchtail.md`, and
-local `.catchtail/` state.
-
-## Limits
-
-- CatchTail is a sidecar, not a Codex core-loop patch.
-- Codex still controls permissions, sandboxing, and tool approval.
-- If the environment cannot run hooks at all, CatchTail cannot re-enter Codex.
-
-## License
+## 许可证
 
 MIT

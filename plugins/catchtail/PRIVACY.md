@@ -1,13 +1,10 @@
-# Privacy Policy
+# 隐私政策
 
-CatchTail is a local Codex hook sidecar.
+CatchTail 是一个本地 Codex hook sidecar。
 
-- CatchTail stores runtime state in the target project under `.catchtail/`.
-- Messages, queue state, session history, uploads, and drafts stay on the local
-  machine unless the user explicitly shares or commits them.
-- CatchTail does not run a hosted service and does not send telemetry.
-- The browser console binds to `127.0.0.1` by default.
+- CatchTail 会把运行时状态写入目标项目的 `.catchtail/` 目录。
+- 消息、队列状态、会话历史、上传文件和草稿默认都保留在本机，除非用户主动分享或提交它们。
+- CatchTail 不运行托管服务，也不发送遥测数据。
+- 浏览器控制台默认绑定到 `127.0.0.1`。
 
-Codex, GitHub, and any model provider or harness you use may have their own
-privacy behavior. Review those services separately.
-
+Codex、GitHub、模型提供商或你使用的执行环境可能有各自的隐私行为。请分别查看这些服务的隐私说明。

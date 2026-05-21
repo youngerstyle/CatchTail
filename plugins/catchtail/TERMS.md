@@ -1,9 +1,7 @@
-# Terms
+# 使用条款
 
-CatchTail is provided under the MIT License.
+CatchTail 基于 MIT License 提供。
 
-Use it at your own risk. CatchTail installs local Codex hooks and writes runtime
-state into the target project. Review generated hook commands before trusting
-them, and keep following your Codex environment's permission and sandbox rules.
+使用 CatchTail 需要你自行承担风险。CatchTail 会安装本地 Codex hooks，并把运行时状态写入目标项目。信任 hook 前请先查看生成的 hook 命令，并继续遵守你的 Codex 环境中的权限、sandbox 和审批规则。
 
-See [LICENSE](LICENSE) for license terms.
+许可证条款见 [LICENSE](LICENSE)。

@@ -1,12 +1,10 @@
-# CatchTail Protocol
+# CatchTail 协议
 
-CatchTail treats the Codex loop as a black box and adds an interaction aspect at
-the lifecycle points Codex exposes. The supported core is intentionally
-lightweight: queue plus session history.
+CatchTail 把 Codex 主循环当作黑盒，只在 Codex 暴露的生命周期点上增加交互能力。核心协议刻意保持轻量：一个队列，加一份会话历史。
 
-## State Model
+## 状态模型
 
-Runtime data is scoped by Codex `session_id`:
+运行时数据按 Codex `session_id` 隔离：
 
 ```text
 .catchtail/sessions/<session_id>/
@@ -15,10 +13,9 @@ Runtime data is scoped by Codex `session_id`:
 └── session.jsonl
 ```
 
-`session_id` comes from the Codex hook payload. If no session id exists, use
-`default`.
+`session_id` 来自 Codex hook payload。如果 payload 没有 session id，就使用 `default`。
 
-`state.json` is the compact workflow state:
+`state.json` 保存压缩后的 workflow 状态：
 
 ```json
 {
@@ -31,12 +28,11 @@ Runtime data is scoped by Codex `session_id`:
 }
 ```
 
-`milestone: "completed"` is the only natural exit condition for the interactive
-workflow.
+`milestone: "completed"` 是交互工作流唯一的自然退出条件。
 
-## Queue And History
+## 队列和历史
 
-`queue.json` is the compact current queue. It contains only unclaimed input:
+`queue.json` 保存当前尚未领取的队列消息：
 
 ```json
 {
@@ -55,37 +51,27 @@ workflow.
 }
 ```
 
-`claim` removes the first item from `queue.json`. `session.jsonl` receives all
-important events: user messages, claims, completions, milestone changes, prompt
-activation, and Stop-hook turns.
+`claim` 会从 `queue.json` 中领取并移除第一条消息。`session.jsonl` 记录重要事件：用户消息、领取、完成、milestone 变化、启动提示和 Stop hook 回合。
 
-Message kinds:
+消息类型：
 
-- `message`: conversational user feedback.
-- `task`: work to execute on the next available Codex boundary.
-- `question`: clarification or answer to a Codex question.
+- `message`：用户的对话反馈。
+- `task`：在下一个 Codex 边界执行的工作。
+- `question`：对 Codex 问题的澄清或回答。
 
-Each message can include `files`, which are local paths to documents, images, or
-other artifacts the agent may inspect. It can also include `refs`, a lightweight
-list of context hints such as `{ "type": "skill", "value": "..." }`,
-`{ "type": "plugin", "value": "..." }`, or `{ "type": "path", "value": "..." }`.
-These hints are Codex-style mentions for routing attention only: they are not
-attachments, do not grant permissions, and do not install or activate a skill or
-plugin by themselves. The agent still follows the normal Codex skill/plugin
-loading rules and permission boundaries.
+每条消息可以包含 `files`，即本地文档、图片或其它 artifact 的路径。消息也可以包含 `refs`，用于提供轻量上下文提示，例如 `{ "type": "skill", "value": "..." }`、`{ "type": "plugin", "value": "..." }` 或 `{ "type": "path", "value": "..." }`。
 
-The web console saves uploaded attachments under:
+这些 refs 只是 Codex 风格的注意力路由提示：它们不是附件，不授予权限，也不会自动安装或激活 skill/plugin。agent 仍然必须遵守正常的 Codex skill/plugin 加载规则和权限边界。
+
+网页控制台会把上传附件保存到：
 
 ```text
 .catchtail/uploads/<session_id>/
 ```
 
-Image previews and system-default file opening are served through restricted
-local APIs that only accept paths inside `.catchtail/uploads/`. Text drafts are
-stored in browser localStorage per Codex session; attachment drafts are restored
-from uploaded file paths.
+图片预览和系统默认文件打开都通过受限的本地 API 提供，只接受 `.catchtail/uploads/` 里面的路径。文本草稿按 Codex session 保存到浏览器 localStorage；附件草稿会从已上传的文件路径恢复。
 
-Third-party tools should use the queue API instead of automating the console UI:
+第三方工具应该调用队列 API，而不是自动化网页控制台：
 
 ```text
 GET  /api/queue?sessionId=<id>
@@ -95,50 +81,39 @@ POST /api/queue/cancel?sessionId=<id>
 POST /api/queue/complete?sessionId=<id>
 ```
 
-These queue endpoints include CORS headers. File preview/open APIs remain local
-sidecar capabilities and are not the public integration surface.
-`sessionId` is required in the query string for queue endpoints. The API returns
-`400` when it is omitted, so third-party tools never guess the wrong Codex
-session.
+队列接口包含 CORS headers。文件预览和文件打开 API 仍然是本地 sidecar 能力，不是公开集成面。
 
-## Hook Mapping
+队列接口必须在 query string 中提供 `sessionId`。缺失时 API 返回 `400`，避免第三方工具猜错 Codex session。
 
-Only two hooks are required for the core workflow:
+## Hook 映射
+
+核心工作流只需要两个 hook：
 
 ```text
-UserPromptSubmit   activate mode and inject protocol context
-Stop               keep the loop alive until milestone is completed
+UserPromptSubmit   启动模式并注入协议上下文
+Stop               在 milestone completed 之前保持循环
 ```
 
-CatchTail does not install `PreToolUse`, `PermissionRequest`, or `PostToolUse`
-in the lightweight core. Permission decisions remain Codex-native.
+CatchTail 的轻量核心不会安装 `PreToolUse`、`PermissionRequest` 或 `PostToolUse`。权限决策仍然由 Codex 原生机制处理。
 
-## Idle Waiting
+## 空闲等待
 
-When `Stop` fires and there is no queued message, the hook should not ask the
-model to poll. It should long-poll the local sidecar instead:
+当 `Stop` 触发且没有待处理消息时，hook 不应该要求模型轮询。它应该长轮询本地 sidecar：
 
 ```text
 GET /api/wait?timeoutMs=540000
 ```
 
-The sidecar resolves the wait when a user message or milestone update arrives.
-If the wait times out or the sidecar is unavailable, the hook returns a fallback
-continuation prompt.
+当用户消息或 milestone 更新到达时，sidecar 会结束等待。如果等待超时或 sidecar 不可用，hook 会返回兜底续跑提示。
 
-## Agent Processing Contract
+## Agent 处理契约
 
-When a continuation prompt reports pending input, the agent should process it in
-created order:
+当续跑提示报告有待处理输入时，agent 应该按创建顺序处理：
 
 ```powershell
 <catchtail-cli> claim
-<catchtail-cli> complete <id> <short-result>
+<catchtail-cli> complete <id> <简短结果>
 <catchtail-cli> wait
 ```
 
-The agent should re-read state and queue at hook boundaries and should not treat
-the hook-generated continuation prompt as final user acceptance. It is only the
-loop-control signal. After completing a message, if the milestone is still
-incomplete, the agent should immediately enter local wait again and keep the
-current turn alive.
+agent 应该在 hook 边界重新读取 state 和 queue，不要把 hook 生成的续跑提示当作用户最终验收。它只是循环控制信号。完成一条消息后，如果 milestone 仍未 completed，agent 应该立即进入本地 wait，保持当前回合继续等待。

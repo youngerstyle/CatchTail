@@ -1,7 +1,7 @@
 {
   "name": "catchtail",
   "version": "0.1.18",
-  "description": "A lightweight Codex hook sidecar for long-running interactive sessions.",
+  "description": "用于长时间 Codex 会话的本地 hook sidecar，让任务执行中仍可继续交互。",
   "author": {
     "name": "CatchTail",
     "email": "noreply@example.com",
@@ -20,8 +20,8 @@
   "hooks": "./hooks.json",
   "interface": {
     "displayName": "CatchTail",
-    "shortDescription": "Keep long-running Codex sessions interactive through hooks.",
-    "longDescription": "CatchTail adds a local queue, session history, web console, and Stop-hook long-polling so a Codex session can continue receiving user input without patching Codex internals.",
+    "shortDescription": "通过本地 hook 让长时间 Codex 会话保持可交互。",
+    "longDescription": "CatchTail 提供本地队列、会话历史、网页控制台和 Stop hook 长轮询，让 Codex 会话不修改内核也能持续接收用户输入。",
     "developerName": "CatchTail",
     "category": "Productivity",
     "capabilities": [
