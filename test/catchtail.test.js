@@ -537,14 +537,43 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
     assert.match(script, /queue-detail-body/);
     assert.match(script, /editQueueItem/);
     assert.match(script, /saveQueueEdit/);
-    assert.match(script, /\/api\/queue\/update/);
-    assert.match(script, /\/api\/queue\/editing/);
+    assert.match(script, /sessionQueuePath/);
+    assert.match(script, /\/api\/sessions\//);
+    assert.match(script, /\/queue'/);
+    assert.match(script, /sessionQueuePath\('\/update'\)/);
+    assert.match(script, /sessionQueuePath\('\/editing'\)/);
     assert.match(script, /editablePlainText/);
     assert.match(script, /tag === 'BR'/);
     assert.match(script, /syncQueueExpandButtons/);
     assert.doesNotThrow(() => new vm.Script(script));
 
-    const enqueue = await fetch(`${base}/api/queue?sessionId=session-b`, {
+    const sessionRouteEnqueue = await fetch(`${base}/api/sessions/session-route/queue`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ body: "session route", kind: "message", files: [], refs: [] })
+    }).then((response) => response.json());
+    assert.equal(sessionRouteEnqueue.ok, true);
+    assert.equal(sessionRouteEnqueue.sessionId, "session-route");
+
+    const sessions = await fetch(`${base}/api/sessions`).then((response) => response.json());
+    assert.equal(sessions.ok, true);
+    assert.equal(sessions.sessions.some((session) => session.sessionId === "session-route"), true);
+    assert.equal(sessions.sessions.find((session) => session.sessionId === "session-route")?.sidecar, null);
+
+    const sessionRouteClaim = await fetch(`${base}/api/sessions/session-route/queue/claim`, {
+      method: "POST"
+    }).then((response) => response.json());
+    assert.equal(sessionRouteClaim.item.id, sessionRouteEnqueue.id);
+    assert.equal(sessionRouteClaim.item.body, "session route");
+
+    const legacyEnqueue = await fetch(`${base}/api/queue?sessionId=session-b`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ body: "legacy route should be gone", kind: "message", files: [], refs: [] })
+    });
+    assert.equal(legacyEnqueue.status, 404);
+
+    const enqueue = await fetch(`${base}/api/sessions/session-b/queue`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -563,7 +592,7 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
     const enqueueBody = await enqueue.json();
     assert.equal(enqueueBody.ok, true);
 
-    const claim = await fetch(`${base}/api/queue/claim?sessionId=session-b`, {
+    const claim = await fetch(`${base}/api/sessions/session-b/queue/claim`, {
       method: "POST"
     }).then((response) => response.json());
     assert.equal(claim.item.id, enqueueBody.id);
@@ -575,14 +604,14 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
     assert.equal(claim.item.refs[1].label, "Browser");
     assert.match(claim.item.refs[1].source, /plugin\.json$/);
 
-    const complete = await fetch(`${base}/api/queue/complete?sessionId=session-b`, {
+    const complete = await fetch(`${base}/api/sessions/session-b/queue/complete`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: enqueueBody.id, response: "done" })
     }).then((response) => response.json());
     assert.equal(complete.ok, true);
 
-    const oldMentionEnqueue = await fetch(`${base}/api/queue?sessionId=session-c`, {
+    const oldMentionEnqueue = await fetch(`${base}/api/sessions/session-c/queue`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
@@ -594,24 +623,24 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
     }).then((response) => response.json());
     assert.equal(oldMentionEnqueue.ok, true);
 
-    const oldMentionClaim = await fetch(`${base}/api/queue/claim?sessionId=session-c`, {
+    const oldMentionClaim = await fetch(`${base}/api/sessions/session-c/queue/claim`, {
       method: "POST"
     }).then((response) => response.json());
     assert.equal(oldMentionClaim.item.id, oldMentionEnqueue.id);
     assert.equal(oldMentionClaim.item.body, "[$Demo Plugin](demo-plugin) already mentioned");
 
-    const first = await fetch(`${base}/api/queue?sessionId=session-edit`, {
+    const first = await fetch(`${base}/api/sessions/session-edit/queue`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ body: "first draft", kind: "message", files: [], refs: [] })
     }).then((response) => response.json());
-    const second = await fetch(`${base}/api/queue?sessionId=session-edit`, {
+    const second = await fetch(`${base}/api/sessions/session-edit/queue`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ body: "second draft", kind: "message", files: [], refs: [] })
     }).then((response) => response.json());
 
-    const update = await fetch(`${base}/api/queue/update?sessionId=session-edit`, {
+    const update = await fetch(`${base}/api/sessions/session-edit/queue/update`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: first.id, body: "first edited", files: [], refs: [] })
@@ -620,41 +649,41 @@ test("server queue API can enqueue, claim, and complete a message", async () => 
     assert.equal(update.item.id, first.id);
     assert.equal(update.item.body, "first edited");
 
-    const editedQueue = await fetch(`${base}/api/queue?sessionId=session-edit`).then((response) => response.json());
+    const editedQueue = await fetch(`${base}/api/sessions/session-edit/queue`).then((response) => response.json());
     assert.deepEqual(editedQueue.items.map((item) => item.id), [first.id, second.id]);
     assert.deepEqual(editedQueue.items.map((item) => item.body), ["first edited", "second draft"]);
 
-    const lockedFirst = await fetch(`${base}/api/queue?sessionId=session-edit-lock`, {
+    const lockedFirst = await fetch(`${base}/api/sessions/session-edit-lock/queue`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ body: "locked first", kind: "message", files: [], refs: [] })
     }).then((response) => response.json());
-    const lockedSecond = await fetch(`${base}/api/queue?sessionId=session-edit-lock`, {
+    const lockedSecond = await fetch(`${base}/api/sessions/session-edit-lock/queue`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ body: "second waits", kind: "message", files: [], refs: [] })
     }).then((response) => response.json());
-    const lock = await fetch(`${base}/api/queue/editing?sessionId=session-edit-lock`, {
+    const lock = await fetch(`${base}/api/sessions/session-edit-lock/queue/editing`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: lockedFirst.id, editing: true })
     }).then((response) => response.json());
     assert.equal(lock.ok, true);
 
-    const lockedClaim = await fetch(`${base}/api/queue/claim?sessionId=session-edit-lock`, {
+    const lockedClaim = await fetch(`${base}/api/sessions/session-edit-lock/queue/claim`, {
       method: "POST"
     }).then((response) => response.json());
     assert.equal(lockedClaim.item, null);
-    const lockedQueue = await fetch(`${base}/api/queue?sessionId=session-edit-lock`).then((response) => response.json());
+    const lockedQueue = await fetch(`${base}/api/sessions/session-edit-lock/queue`).then((response) => response.json());
     assert.deepEqual(lockedQueue.items.map((item) => item.id), [lockedFirst.id, lockedSecond.id]);
 
-    const unlock = await fetch(`${base}/api/queue/editing?sessionId=session-edit-lock`, {
+    const unlock = await fetch(`${base}/api/sessions/session-edit-lock/queue/editing`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: lockedFirst.id, editing: false })
     }).then((response) => response.json());
     assert.equal(unlock.ok, true);
-    const unlockedClaim = await fetch(`${base}/api/queue/claim?sessionId=session-edit-lock`, {
+    const unlockedClaim = await fetch(`${base}/api/sessions/session-edit-lock/queue/claim`, {
       method: "POST"
     }).then((response) => response.json());
     assert.equal(unlockedClaim.item.id, lockedFirst.id);

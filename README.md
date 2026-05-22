@@ -144,11 +144,13 @@ plugins/catchtail/docs/protocol.md                  协议细节
 第三方工具可以直接调用 CatchTail 的本地队列 API，不需要自动化浏览器界面：
 
 ```text
-GET  /api/queue?sessionId=<id>
-POST /api/queue?sessionId=<id>
-POST /api/queue/claim?sessionId=<id>
-POST /api/queue/cancel?sessionId=<id>
-POST /api/queue/complete?sessionId=<id>
+GET  /api/sessions
+GET  /api/sessions/<sessionId>/queue
+POST /api/sessions/<sessionId>/queue
+POST /api/sessions/<sessionId>/queue/claim
+POST /api/sessions/<sessionId>/queue/cancel
+POST /api/sessions/<sessionId>/queue/complete
+
 ```
 
 `sessionId` 必须显式提供。队列接口是普通本地 HTTP API，可被本地代码、CLI、脚本或 agent 进程直接调用；它不提供浏览器跨域 CORS。文件预览和文件打开接口只在本地 sidecar 内可用，并且只接受 `.catchtail/uploads/` 下的路径。

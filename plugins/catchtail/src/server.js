@@ -22,72 +22,13 @@ export function createServer({
       if (request.method === "GET" && url.pathname === "/") {
         return sendHtml(response, renderConsole(defaultSessionId));
       }
-      if (request.method === "GET" && url.pathname === "/api/queue") {
-        const runtime = queueRuntimeFor(root, url);
-        return sendJson(response, runtime.getQueue());
+      if (request.method === "GET" && url.pathname === "/api/sessions") {
+        return sendJson(response, { ok: true, sessions: listSessions(root) });
       }
-      if (request.method === "POST" && url.pathname === "/api/queue") {
-        const runtime = queueRuntimeFor(root, url);
-        const body = await readJson(request);
-        const refs = enrichRefs(root, normalizeRefs(body.refs));
-        const id = runtime.enqueueMessage({
-          body: bodyWithMentions(String(body.body ?? ""), refs),
-          kind: body.kind ?? "message",
-          files: Array.isArray(body.files) ? body.files : [],
-          refs
-        });
-        notifyWaiters(waiters, { ok: true, reason: "message", id, sessionId: runtime.sessionId });
-        return sendJson(response, { ok: true, id, sessionId: runtime.sessionId });
-      }
-      if (request.method === "POST" && url.pathname === "/api/queue/claim") {
-        const runtime = queueRuntimeFor(root, url);
-        return sendJson(response, {
-          ok: true,
-          item: runtime.claimNextMessage(),
-          sessionId: runtime.sessionId
-        });
-      }
-      if (request.method === "POST" && url.pathname === "/api/queue/cancel") {
-        const runtime = queueRuntimeFor(root, url);
-        const body = await readJson(request);
-        const id = String(body.id ?? "");
-        if (!id) return sendJson(response, { ok: false, error: "Missing message id" }, { status: 400 });
-        const item = runtime.cancelMessage(id, String(body.reason ?? ""));
-        if (!item) return sendJson(response, { ok: false, error: "Queue item not found" }, { status: 404 });
-        notifyWaiters(waiters, { ok: true, reason: "cancel", id, sessionId: runtime.sessionId });
-        return sendJson(response, { ok: true, item, sessionId: runtime.sessionId });
-      }
-      if (request.method === "POST" && url.pathname === "/api/queue/update") {
-        const runtime = queueRuntimeFor(root, url);
-        const body = await readJson(request);
-        const id = String(body.id ?? "");
-        if (!id) return sendJson(response, { ok: false, error: "Missing message id" }, { status: 400 });
-        const item = runtime.updateMessage(id, {
-          body: String(body.body ?? ""),
-          files: normalizeFilePaths(body.files),
-          refs: normalizeRefs(body.refs)
-        });
-        if (!item) return sendJson(response, { ok: false, error: "Queue item not found" }, { status: 404 });
-        notifyWaiters(waiters, { ok: true, reason: "update", id, sessionId: runtime.sessionId });
-        return sendJson(response, { ok: true, item, sessionId: runtime.sessionId });
-      }
-      if (request.method === "POST" && url.pathname === "/api/queue/editing") {
-        const runtime = queueRuntimeFor(root, url);
-        const body = await readJson(request);
-        const id = String(body.id ?? "");
-        if (!id) return sendJson(response, { ok: false, error: "Missing message id" }, { status: 400 });
-        const item = runtime.setMessageEditing(id, Boolean(body.editing));
-        if (!item) return sendJson(response, { ok: false, error: "Queue item not found" }, { status: 404 });
-        if (!item.editing) notifyWaiters(waiters, { ok: true, reason: "editing", id, sessionId: runtime.sessionId });
-        return sendJson(response, { ok: true, item, sessionId: runtime.sessionId });
-      }
-      if (request.method === "POST" && url.pathname === "/api/queue/complete") {
-        const runtime = queueRuntimeFor(root, url);
-        const body = await readJson(request);
-        const id = String(body.id ?? "");
-        if (!id) return sendJson(response, { ok: false, error: "Missing message id" }, { status: 400 });
-        runtime.completeMessage(id, String(body.response ?? ""));
-        return sendJson(response, { ok: true, id, sessionId: runtime.sessionId });
+      const sessionRoute = parseSessionRoute(url.pathname);
+      if (sessionRoute) {
+        const runtime = new CatchTailRuntime({ root, sessionId: sessionRoute.sessionId });
+        return handleQueueRequest({ request, response, root, runtime, waiters, queuePath: sessionRoute.queuePath });
       }
 
       const runtime = runtimeFor(root, url, defaultSessionId);
@@ -178,12 +119,103 @@ function runtimeFor(root, url, defaultSessionId = "default") {
   });
 }
 
-function queueRuntimeFor(root, url) {
-  const sessionId = url.searchParams.get("sessionId");
-  if (!sessionId) {
-    throw httpError(400, "Missing required sessionId");
+async function handleQueueRequest({ request, response, root, runtime, waiters, queuePath }) {
+  if (request.method === "GET" && queuePath === "") {
+    return sendJson(response, runtime.getQueue());
   }
-  return new CatchTailRuntime({ root, sessionId });
+  if (request.method === "POST" && queuePath === "") {
+    const body = await readJson(request);
+    const refs = enrichRefs(root, normalizeRefs(body.refs));
+    const id = runtime.enqueueMessage({
+      body: bodyWithMentions(String(body.body ?? ""), refs),
+      kind: body.kind ?? "message",
+      files: Array.isArray(body.files) ? body.files : [],
+      refs
+    });
+    notifyWaiters(waiters, { ok: true, reason: "message", id, sessionId: runtime.sessionId });
+    return sendJson(response, { ok: true, id, sessionId: runtime.sessionId });
+  }
+  if (request.method === "POST" && queuePath === "/claim") {
+    return sendJson(response, {
+      ok: true,
+      item: runtime.claimNextMessage(),
+      sessionId: runtime.sessionId
+    });
+  }
+  if (request.method === "POST" && queuePath === "/cancel") {
+    const body = await readJson(request);
+    const id = String(body.id ?? "");
+    if (!id) return sendJson(response, { ok: false, error: "Missing message id" }, { status: 400 });
+    const item = runtime.cancelMessage(id, String(body.reason ?? ""));
+    if (!item) return sendJson(response, { ok: false, error: "Queue item not found" }, { status: 404 });
+    notifyWaiters(waiters, { ok: true, reason: "cancel", id, sessionId: runtime.sessionId });
+    return sendJson(response, { ok: true, item, sessionId: runtime.sessionId });
+  }
+  if (request.method === "POST" && queuePath === "/update") {
+    const body = await readJson(request);
+    const id = String(body.id ?? "");
+    if (!id) return sendJson(response, { ok: false, error: "Missing message id" }, { status: 400 });
+    const item = runtime.updateMessage(id, {
+      body: String(body.body ?? ""),
+      files: normalizeFilePaths(body.files),
+      refs: normalizeRefs(body.refs)
+    });
+    if (!item) return sendJson(response, { ok: false, error: "Queue item not found" }, { status: 404 });
+    notifyWaiters(waiters, { ok: true, reason: "update", id, sessionId: runtime.sessionId });
+    return sendJson(response, { ok: true, item, sessionId: runtime.sessionId });
+  }
+  if (request.method === "POST" && queuePath === "/editing") {
+    const body = await readJson(request);
+    const id = String(body.id ?? "");
+    if (!id) return sendJson(response, { ok: false, error: "Missing message id" }, { status: 400 });
+    const item = runtime.setMessageEditing(id, Boolean(body.editing));
+    if (!item) return sendJson(response, { ok: false, error: "Queue item not found" }, { status: 404 });
+    if (!item.editing) notifyWaiters(waiters, { ok: true, reason: "editing", id, sessionId: runtime.sessionId });
+    return sendJson(response, { ok: true, item, sessionId: runtime.sessionId });
+  }
+  if (request.method === "POST" && queuePath === "/complete") {
+    const body = await readJson(request);
+    const id = String(body.id ?? "");
+    if (!id) return sendJson(response, { ok: false, error: "Missing message id" }, { status: 400 });
+    runtime.completeMessage(id, String(body.response ?? ""));
+    return sendJson(response, { ok: true, id, sessionId: runtime.sessionId });
+  }
+  return sendJson(response, { error: "Not found" }, { status: 404 });
+}
+
+function parseSessionRoute(pathname) {
+  const match = pathname.match(/^\/api\/sessions\/([^/]+)\/queue(\/(?:claim|cancel|update|editing|complete))?$/);
+  if (!match) return null;
+  return {
+    sessionId: decodeURIComponent(match[1]),
+    queuePath: match[2] ?? ""
+  };
+}
+
+function listSessions(root) {
+  const sessionsDir = join(root, ".catchtail", "sessions");
+  if (!existsSync(sessionsDir)) return [];
+  return readdirSync(sessionsDir)
+    .map((name) => sessionSummary(root, name))
+    .filter(Boolean)
+    .sort((a, b) => String(b.updatedAt ?? "").localeCompare(String(a.updatedAt ?? "")));
+}
+
+function sessionSummary(root, sessionId) {
+  const sessionDir = join(root, ".catchtail", "sessions", sessionId);
+  const statePath = join(sessionDir, "state.json");
+  const queuePath = join(sessionDir, "queue.json");
+  if (!existsSync(statePath) && !existsSync(queuePath)) return null;
+  const state = existsSync(statePath) ? readJsonFile(statePath, {}) : {};
+  const queue = existsSync(queuePath) ? readJsonFile(queuePath, { items: [] }) : { items: [] };
+  return {
+    sessionId,
+    milestone: state.interactive?.milestone ?? null,
+    interactive: Boolean(state.interactive?.enabled),
+    queueLength: Array.isArray(queue.items) ? queue.items.length : 0,
+    updatedAt: state.sidecar?.updatedAt ?? queue.updatedAt ?? state.interactive?.startedAt ?? null,
+    sidecar: state.sidecar ?? null
+  };
 }
 
 function latestActiveSessionId(root) {
@@ -204,6 +236,14 @@ function latestActiveSessionId(root) {
     }
   }
   return best?.name ?? null;
+}
+
+function readJsonFile(path, fallback) {
+  try {
+    return JSON.parse(stripBom(readFileSync(path, "utf8")));
+  } catch {
+    return fallback;
+  }
 }
 
 function httpError(statusCode, message) {
@@ -1399,6 +1439,10 @@ function renderConsole(defaultSessionId = "default") {
       return res.json();
     }
 
+    function sessionQueuePath(suffix = '') {
+      return '/api/sessions/' + encodeURIComponent(state.sessionId) + '/queue' + suffix;
+    }
+
     async function loadRefs() {
       const refs = await api('/api/refs');
       slash.entries = [
@@ -1410,7 +1454,7 @@ function renderConsole(defaultSessionId = "default") {
     async function refresh() {
       const appState = await api('/api/state');
       state.sessionId = appState.sessionId;
-      const queue = await api('/api/queue?sessionId=' + encodeURIComponent(state.sessionId));
+      const queue = await api(sessionQueuePath());
       state.queueItems = queue.items;
       document.getElementById('sessionLabel').textContent = appState.sessionId;
       document.getElementById('queueCount').textContent = String(queue.items.length);
@@ -1684,7 +1728,7 @@ function renderConsole(defaultSessionId = "default") {
     }
 
     window.cancelQueueItem = async function cancelQueueItem(id) {
-      await api('/api/queue/cancel?sessionId=' + encodeURIComponent(state.sessionId), {
+      await api(sessionQueuePath('/cancel'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ id, reason: 'cancelled from console' })
@@ -1722,7 +1766,7 @@ function renderConsole(defaultSessionId = "default") {
       const editor = document.querySelector('[data-queue-edit="' + cssEscape(id) + '"]');
       if (!editor) return;
       const item = state.queueItems.find(item => item.id === id);
-      await api('/api/queue/update?sessionId=' + encodeURIComponent(state.sessionId), {
+      await api(sessionQueuePath('/update'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ id, body: editor.value, files: item?.files || [], refs: item?.refs || [] })
@@ -1733,7 +1777,7 @@ function renderConsole(defaultSessionId = "default") {
     };
 
     async function setQueueEditing(id, editing) {
-      await api('/api/queue/editing?sessionId=' + encodeURIComponent(state.sessionId), {
+      await api(sessionQueuePath('/editing'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ id, editing })
